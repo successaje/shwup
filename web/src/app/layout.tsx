@@ -10,7 +10,12 @@ const bricolage = Bricolage_Grotesque({ variable: "--font-bricolage", subsets: [
 const geist = Geist({ variable: "--font-geist", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "http://localhost:3100");
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: { default: "ShwUp — RSVPs that mean it", template: "%s · ShwUp" },
   description: "Hold your spot with a small deposit. Get it back the second you walk in. Built on Arc.",
   applicationName: "ShwUp",
