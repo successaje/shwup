@@ -21,7 +21,7 @@ Ticket (per attendee, per event):
 | Held | `cancelRsvp` (before `cancelCutoff`) | Released | deposit → attendee |
 | Held | `checkIn` (organizer or checker) | CheckedIn | deposit → attendee |
 | Held | `claim` after `cancelEvent` | Released | deposit → attendee |
-| CheckedIn | `claim` after `settle`, Attendees policy | CheckedIn (+bonusClaimed) | share of forfeits → attendee |
+| CheckedIn | `claim` after check-in closes, Attendees policy (settles first if nobody has) | CheckedIn (+bonusClaimed) | share of forfeits → attendee |
 | Held | `settle` | Held (no-show) | deposit forfeited |
 
 Forfeits at `settle`:
@@ -29,6 +29,14 @@ Forfeits at `settle`:
 - `ForfeitPolicy.Attendees` — split evenly among checked-in attendees (pull via `claim`);
   integer-division dust goes to the organizer. If nobody checked in, everything goes to the organizer.
 - `ForfeitPolicy.Organizer` — paid to the organizer.
+
+## Profile and details
+
+- `setName(name)` / `rsvpAs(eventId, name)` — an optional **public** display name per wallet (≤ 32
+  bytes), shown to organizers on guest lists and at the door. `namesOf(address[])` reads a batch.
+- `updateDetails(eventId, metadata)` — the organizer can edit name/location/description until
+  check-in closes. Money terms (deposit, schedule, capacity, forfeit policy) are fixed once created,
+  because guests committed to them.
 
 ## Invariants
 
@@ -49,6 +57,12 @@ Forfeits at `settle`:
   receiver rejects them they're credited to `credits[addr]` and withdrawable via `withdrawCredits`,
   so one hostile receiver can't block check-in or settlement.
 - All state-changing functions that move funds are `nonReentrant` and follow checks-effects-interactions.
+- **Known incentive limits** (not bugs, but worth stating):
+  - *Organizer policy*: the organizer keeps no-show deposits, so they have an incentive not to scan
+    real guests. The guest page shows each organizer's on-chain track record so guests can judge.
+  - *Attendees policy*: an organizer (or anyone) can RSVP extra wallets and check them in, diluting
+    the per-attendee bonus. Their deposits are refunded, so it costs only gas. The bonus is a perk,
+    not a guarantee.
 
 ## Commands
 

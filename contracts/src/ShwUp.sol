@@ -61,6 +61,7 @@ contract ShwUp is ReentrancyGuard {
     /// @notice Events can be scheduled at most this far ahead.
     uint64 public constant MAX_LEAD_TIME = 365 days;
     uint256 public constant MAX_METADATA_BYTES = 2048;
+    uint256 public constant MAX_NAME_BYTES = 32;
     /// @dev Gas forwarded on push payments so a hostile receiver can't grief the caller.
     uint256 private constant PUSH_GAS = 50_000;
 
@@ -77,6 +78,9 @@ contract ShwUp is ReentrancyGuard {
 
     /// @notice Payments that could not be pushed (e.g. to a contract that rejected them).
     mapping(address => uint256) public credits;
+
+    /// @notice Optional public display name per wallet, shown to organizers on guest lists.
+    mapping(address => string) public nameOf;
 
     // ───────────────────────────────────────────── events
 
@@ -99,6 +103,8 @@ contract ShwUp is ReentrancyGuard {
         uint256 indexed eventId, uint32 noShows, uint256 forfeited, uint128 bonusPerAttendee, uint256 toOrganizer
     );
     event BonusClaimed(uint256 indexed eventId, address indexed attendee, uint128 amount);
+    event EventUpdated(uint256 indexed eventId);
+    event NameSet(address indexed account, string name);
     event PaymentDeferred(address indexed to, uint256 amount);
     event CreditWithdrawn(address indexed to, uint256 amount);
 
@@ -125,6 +131,8 @@ contract ShwUp is ReentrancyGuard {
     error SettlementNotOpen();
     error NothingToClaim();
     error TransferFailed();
+    error NameTooLong();
+    error EventClosed();
 
     // ───────────────────────────────────────────── modifiers
 
@@ -193,26 +201,36 @@ contract ShwUp is ReentrancyGuard {
         emit EventCancelled(eventId);
     }
 
+    /// @notice Edit an event's details (name, location, description) until check-in closes.
+    /// @dev Money terms — deposit, schedule, capacity, forfeit policy — can't change once guests have
+    ///      committed to them.
+    function updateDetails(uint256 eventId, string calldata metadata) external onlyOrganizer(eventId) {
+        EventInfo storage e = _events[eventId];
+        if (e.cancelled) revert EventIsCancelled();
+        if (block.timestamp >= e.checkInEndsAt) revert EventClosed();
+        if (bytes(metadata).length > MAX_METADATA_BYTES) revert MetadataTooLarge();
+        e.metadata = metadata;
+        emit EventUpdated(eventId);
+    }
+
+    // ───────────────────────────────────────────── profile
+
+    /// @notice Set (or clear, with "") the public name organizers see next to your wallet.
+    function setName(string calldata name) external {
+        _setName(name);
+    }
+
     // ───────────────────────────────────────────── attendee
 
     /// @notice Hold a spot by paying exactly the event's deposit.
     function rsvp(uint256 eventId) external payable nonReentrant {
-        EventInfo storage e = _existing(eventId);
-        if (e.cancelled) revert EventIsCancelled();
-        if (block.timestamp >= e.checkInEndsAt) revert RsvpClosed();
-        if (msg.value != e.deposit) revert WrongDepositAmount();
-        if (e.capacity != 0 && e.held >= e.capacity) revert EventFull();
+        _rsvp(eventId);
+    }
 
-        Ticket storage t = _tickets[eventId][msg.sender];
-        if (t.status == TicketStatus.Held || t.status == TicketStatus.CheckedIn) revert AlreadyHolding();
-        if (t.status == TicketStatus.None) {
-            _attendees[eventId].push(msg.sender);
-            _attendeeEvents[msg.sender].push(eventId);
-        }
-        t.status = TicketStatus.Held;
-        e.held += 1;
-
-        emit SpotHeld(eventId, msg.sender, e.deposit);
+    /// @notice Hold a spot and set your public display name in one transaction.
+    function rsvpAs(uint256 eventId, string calldata name) external payable nonReentrant {
+        _setName(name);
+        _rsvp(eventId);
     }
 
     /// @notice Give up a held spot before the cancellation cutoff for a full refund.
@@ -253,27 +271,11 @@ contract ShwUp is ReentrancyGuard {
         if (e.cancelled) revert EventIsCancelled();
         if (e.settled) revert EventIsSettled();
         if (block.timestamp < e.checkInEndsAt) revert SettlementNotOpen();
-
-        e.settled = true;
-        uint32 noShows = e.held - e.checkedIn;
-        uint256 forfeited = uint256(noShows) * e.deposit;
-        uint256 toOrganizer = forfeited;
-        uint128 bonus;
-
-        if (e.forfeitPolicy == ForfeitPolicy.Attendees && e.checkedIn > 0) {
-            // Safe: forfeited <= (2^32 - 1) * (2^96 - 1) < 2^128.
-            // forge-lint: disable-next-line(unsafe-typecast)
-            bonus = uint128(forfeited / e.checkedIn);
-            toOrganizer = forfeited - uint256(bonus) * e.checkedIn; // rounding dust
-            e.bonusPerAttendee = bonus;
-        }
-        if (toOrganizer > 0) _pay(e.organizer, toOrganizer);
-
-        emit EventSettled(eventId, noShows, forfeited, bonus, toOrganizer);
+        _settle(eventId, e);
     }
 
     /// @notice Claim what you're owed for an event: your deposit if the event was cancelled, or your
-    ///         share of forfeited deposits after settlement.
+    ///         share of forfeited deposits once check-in has closed (settling the event if needed).
     function claim(uint256 eventId) external nonReentrant {
         EventInfo storage e = _existing(eventId);
         Ticket storage t = _tickets[eventId][msg.sender];
@@ -286,6 +288,9 @@ contract ShwUp is ReentrancyGuard {
             emit SpotReleased(eventId, msg.sender, e.deposit);
             return;
         }
+
+        // Attendees shouldn't have to wait for someone to press "settle".
+        if (!e.settled && block.timestamp >= e.checkInEndsAt) _settle(eventId, e);
 
         if (!e.settled || t.status != TicketStatus.CheckedIn || t.bonusClaimed || e.bonusPerAttendee == 0) {
             revert NothingToClaim();
@@ -320,7 +325,12 @@ contract ShwUp is ReentrancyGuard {
         EventInfo storage e = _events[eventId];
         Ticket storage t = _tickets[eventId][attendee];
         if (e.cancelled) return t.status == TicketStatus.Held ? e.deposit : 0;
-        if (e.settled && t.status == TicketStatus.CheckedIn && !t.bonusClaimed) return e.bonusPerAttendee;
+        if (t.status != TicketStatus.CheckedIn || t.bonusClaimed) return 0;
+        if (e.settled) return e.bonusPerAttendee;
+        // Closed but not yet settled: what `claim` would settle and pay.
+        if (block.timestamp >= e.checkInEndsAt && e.forfeitPolicy == ForfeitPolicy.Attendees && e.checkedIn > 0) {
+            return (uint256(e.held - e.checkedIn) * e.deposit) / e.checkedIn;
+        }
         return 0;
     }
 
@@ -354,7 +364,60 @@ contract ShwUp is ReentrancyGuard {
         return _attendeeEvents[attendee];
     }
 
+    /// @notice Display names for a batch of wallets (empty string where none is set).
+    function namesOf(address[] calldata accounts) external view returns (string[] memory names) {
+        names = new string[](accounts.length);
+        for (uint256 i; i < accounts.length; ++i) {
+            names[i] = nameOf[accounts[i]];
+        }
+    }
+
     // ───────────────────────────────────────────── internal
+
+    function _rsvp(uint256 eventId) private {
+        EventInfo storage e = _existing(eventId);
+        if (e.cancelled) revert EventIsCancelled();
+        if (block.timestamp >= e.checkInEndsAt) revert RsvpClosed();
+        if (msg.value != e.deposit) revert WrongDepositAmount();
+        if (e.capacity != 0 && e.held >= e.capacity) revert EventFull();
+
+        Ticket storage t = _tickets[eventId][msg.sender];
+        if (t.status == TicketStatus.Held || t.status == TicketStatus.CheckedIn) revert AlreadyHolding();
+        if (t.status == TicketStatus.None) {
+            _attendees[eventId].push(msg.sender);
+            _attendeeEvents[msg.sender].push(eventId);
+        }
+        t.status = TicketStatus.Held;
+        e.held += 1;
+
+        emit SpotHeld(eventId, msg.sender, e.deposit);
+    }
+
+    function _settle(uint256 eventId, EventInfo storage e) private {
+        e.settled = true;
+        uint32 noShows = e.held - e.checkedIn;
+        uint256 forfeited = uint256(noShows) * e.deposit;
+        uint256 toOrganizer = forfeited;
+        uint128 bonus;
+
+        if (e.forfeitPolicy == ForfeitPolicy.Attendees && e.checkedIn > 0) {
+            // Safe: forfeited <= (2^32 - 1) * (2^96 - 1) < 2^128.
+            // forge-lint: disable-next-line(unsafe-typecast)
+            bonus = uint128(forfeited / e.checkedIn);
+            toOrganizer = forfeited - uint256(bonus) * e.checkedIn; // rounding dust
+            e.bonusPerAttendee = bonus;
+        }
+        if (toOrganizer > 0) _pay(e.organizer, toOrganizer);
+
+        emit EventSettled(eventId, noShows, forfeited, bonus, toOrganizer);
+    }
+
+    function _setName(string calldata name) private {
+        if (bytes(name).length > MAX_NAME_BYTES) revert NameTooLong();
+        if (keccak256(bytes(name)) == keccak256(bytes(nameOf[msg.sender]))) return;
+        nameOf[msg.sender] = name;
+        emit NameSet(msg.sender, name);
+    }
 
     function _existing(uint256 eventId) private view returns (EventInfo storage e) {
         e = _events[eventId];
