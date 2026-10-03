@@ -163,8 +163,8 @@ cast wallet import shwup-deployer --interactive
 ./scripts/deploy-contract.sh arcTestnet shwup-deployer   # or: arc
 ```
 
-The script records the address in `contracts/deployments/<chainId>.json` and prints the three
-`NEXT_PUBLIC_SHWUP_*` values for the web app.
+The script deploys, verifies the source on Arc's Blockscout explorer, records the address in
+`contracts/deployments/<chainId>.json`, and prints the three `NEXT_PUBLIC_SHWUP_*` values for the web app.
 
 **Web**: deploy `web/` to Vercel (root directory `web`, framework Next.js) with those variables set.
 
@@ -172,7 +172,7 @@ The script records the address in `contracts/deployments/<chainId>.json` and pri
 
 | Network | Chain ID | ShwUp |
 | --- | --- | --- |
-| Arc Testnet | 5042002 | _pending_ |
+| Arc Testnet | 5042002 | [`0xD1d6EE0c5309A09Df9ca4c2936956A49cca9eb71`](https://explorer.testnet.arc.io/address/0xD1d6EE0c5309A09Df9ca4c2936956A49cca9eb71?tab=contract) (verified) |
 | Arc Mainnet | 5042 | _pending_ |
 
 ## Repository
