@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { useConnection } from "wagmi";
 import { CameraScanner } from "@/components/door/camera-scanner";
 import { LoadError } from "@/components/load-error";
+import { InstallHint } from "@/components/install-hint";
 import { ScanFeedItem, ScanResultCard } from "@/components/door/scan-result-card";
 import { TxProgress } from "@/components/tx-progress";
 import { Button } from "@/components/ui/button";
@@ -80,6 +81,7 @@ function Door({ event }: { event: ShwUpEvent }) {
           ) : (
             <>
               <CameraScanner onScan={door.scan} paused={door.working} />
+              <InstallHint />
               <form onSubmit={submitManual} className="flex gap-2">
                 <Input
                   aria-label="Ticket code or link"
