@@ -72,7 +72,9 @@ trust notes are in [`contracts/README.md`](contracts/README.md). Highlights:
   **The organizer can never withdraw held deposits.**
 - Permissionless settlement; check-in window capped at 2 days so funds can't be locked forever.
 - Push payments with a gas stipend and a credit fallback, so one hostile receiver can't block the door.
-- 40 unit/fuzz tests plus a **solvency invariant** (`balance == liabilities`) over randomized lifecycles.
+- 50 unit/fuzz tests plus a **solvency invariant** (`balance == liabilities`) over randomized lifecycles.
+- **Verified on a live Arc node in CI** (`pnpm --filter web smoke:arc`): every money path is simulated against the deployed contract with state overrides — measured costs: hold a spot $0.0038, door refund $0.0025, claim $0.0012.
+- v2 adds editable details, optional public display names (`rsvpAs` sets one while holding a spot), and claims that settle the event themselves once check-in closes.
 
 ### Web app
 
@@ -81,11 +83,13 @@ Next.js 16 (App Router) · React 19 · Tailwind 4 · wagmi 3 / viem · injected 
 | Route | Purpose |
 | --- | --- |
 | `/` | Landing page with a live ticket demo |
-| `/app` | Your events: going and hosting, with what needs doing now |
-| `/app/new` | Create an event with a live ticket preview |
-| `/app/events/[id]` | Organizer console: stats, invite link + QR, guests, manual check-in, settle, cancel |
-| `/app/events/[id]/door` | Door mode: camera scanner, door key setup, instant results |
-| `/e/[id]` | Guest page: hold a spot, live ticket, check-in moment, cancel, claims |
+| `/app` | Your events: going and hosting, with what needs doing now and new RSVPs since you last looked |
+| `/app/new` | Create an event with a live ticket preview; starts from your usual venue/deposit, or `?from=<id>` to run an event again |
+| `/app/events/[id]` | Organizer console: stats, invite link + QR + ready-made invite message, named guest list, manual check-in, CSV export, edit details, settle, cancel |
+| `/app/events/[id]/door` | Door mode: camera scanner, door key setup, "Ada is in" results, install hint |
+| `/app/activity` | Every deposit held, returned, forfeited or earned; show-up record |
+| `/app/settings` | Display name, what's public, door keys on this device |
+| `/e/[id]` | Guest page: hold a spot (with your name), live ticket, add to calendar, map, who's going, organizer track record, check-in moment, claims |
 
 ```
 web/src
@@ -188,7 +192,7 @@ vercel build --prod && vercel deploy --prebuilt --prod
 contracts/   Foundry project: ShwUp.sol, tests, deploy + local seed scripts
 web/         Next.js app
 scripts/     dev chain runner, ABI export, contract deploy
-docs/        product model, build log, demo script
+docs/        product model, production audit + backlog, build log, demo script
 ```
 
 ## License
