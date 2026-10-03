@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar } from "@/components/wallet/account-button";
 import { TicketStatus, type EventPhase, type ShwUpEvent } from "@/domain/event";
-import { shwupContract, useAttendees } from "@/hooks/use-shwup";
+import { shwupContract, useAttendees, useNames } from "@/hooks/use-shwup";
 import { useStagedWrite } from "@/hooks/use-staged-write";
 import { shortAddress } from "@/lib/address";
 import { cn } from "@/lib/cn";
@@ -23,6 +23,7 @@ const ORDER: Record<TicketStatus, number> = {
 
 export function AttendeeList({ event, phase, onChange }: { event: ShwUpEvent; phase: EventPhase; onChange: () => void }) {
   const { rows, isLoading, refetch } = useAttendees(event.id, { live: phase === "doors" });
+  const { nameFor } = useNames(rows?.map((r) => r.address));
   const tx = useStagedWrite();
   const [pending, setPending] = useState<Address | null>(null);
 
@@ -31,7 +32,7 @@ export function AttendeeList({ event, phase, onChange }: { event: ShwUpEvent; ph
     const r = await tx.run({ ...shwupContract, functionName: "checkIn", args: [event.id, attendee] });
     setPending(null);
     if (r.ok) {
-      toast.success(`${shortAddress(attendee)} checked in`, { description: `${formatUsd(event.deposit)} returned to them.` });
+      toast.success(`${nameFor(attendee) ?? shortAddress(attendee)} checked in`, { description: `${formatUsd(event.deposit)} returned to them.` });
       refetch();
       onChange();
     } else if (r.error && r.error.kind !== "rejected") {
@@ -70,7 +71,16 @@ export function AttendeeList({ event, phase, onChange }: { event: ShwUpEvent; ph
           {active.map((r) => (
             <li key={r.address} className="flex min-h-14 items-center gap-3 px-4 py-2.5">
               <Avatar address={r.address} className="size-7" />
-              <span className="num min-w-0 flex-1 truncate text-sm">{shortAddress(r.address)}</span>
+              <span className="min-w-0 flex-1">
+                {nameFor(r.address) ? (
+                  <>
+                    <span className="block truncate text-sm font-medium">{nameFor(r.address)}</span>
+                    <span className="num block truncate text-xs text-ink-3">{shortAddress(r.address)}</span>
+                  </>
+                ) : (
+                  <span className="num block truncate text-sm">{shortAddress(r.address)}</span>
+                )}
+              </span>
               <StatusText status={r.status} phase={phase} />
               {phase === "doors" && r.status === TicketStatus.Held && (
                 <Button

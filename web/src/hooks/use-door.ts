@@ -22,6 +22,8 @@ export type ScanResult = {
   seq: number;
   outcome: ScanOutcome;
   holder?: Address;
+  /** Public display name, when the guest set one. */
+  name?: string;
   detail?: string;
   finalityMs?: number;
   hash?: Hash;
@@ -60,14 +62,13 @@ export function useDoor(event: ShwUpEvent, doorKey: PrivateKeyAccount | null) {
         return push({ outcome: "failed", holder: ticket.holder, detail: "Door isn't ready yet." });
       }
 
-      const current = await publicClient.readContract({
-        address: shwupAddress,
-        abi: shwupAbi,
-        functionName: "ticketOf",
-        args: [event.id, ticket.holder],
-      });
-      if (current.status === TicketStatus.CheckedIn) return push({ outcome: "already", holder: ticket.holder });
-      if (current.status !== TicketStatus.Held) return push({ outcome: "notOnList", holder: ticket.holder });
+      const [current, rawName] = await Promise.all([
+        publicClient.readContract({ address: shwupAddress, abi: shwupAbi, functionName: "ticketOf", args: [event.id, ticket.holder] }),
+        publicClient.readContract({ address: shwupAddress, abi: shwupAbi, functionName: "nameOf", args: [ticket.holder] }),
+      ]);
+      const name = rawName.trim() || undefined;
+      if (current.status === TicketStatus.CheckedIn) return push({ outcome: "already", holder: ticket.holder, name });
+      if (current.status !== TicketStatus.Held) return push({ outcome: "notOnList", holder: ticket.holder, name });
 
       try {
         const { request } = await publicClient.simulateContract({
@@ -81,11 +82,11 @@ export function useDoor(event: ShwUpEvent, doorKey: PrivateKeyAccount | null) {
         const sentAt = performance.now();
         const receipt = await publicClient.waitForTransactionReceipt({ hash, pollingInterval: 200 });
         if (receipt.status !== "success") throw new Error("reverted");
-        push({ outcome: "checkedIn", holder: ticket.holder, hash, finalityMs: Math.round(performance.now() - sentAt) });
+        push({ outcome: "checkedIn", holder: ticket.holder, name, hash, finalityMs: Math.round(performance.now() - sentAt) });
       } catch (e) {
         console.error(e);
         const f = toFriendlyError(e);
-        push({ outcome: "failed", holder: ticket.holder, detail: f.kind === "funds" ? "The door key is out of gas. Top it up." : f.title });
+        push({ outcome: "failed", holder: ticket.holder, name, detail: f.kind === "funds" ? "The door key is out of gas. Top it up." : f.title });
       }
     },
     [event.id, publicClient, signer],
