@@ -1,12 +1,19 @@
-import { Wordmark } from "@/components/brand";
-import { ButtonLink } from "@/components/ui/button";
+import { Faq, FinalCta, Footer, Hero, HowItWorks, LandingNav, NoShowMath, Problem, WhyArc } from "@/components/landing/sections";
 
-export default function Home() {
+export default function Landing() {
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col items-start justify-center gap-6 px-4 sm:px-6">
-      <Wordmark />
-      <h1 className="font-display text-4xl font-bold tracking-tight">RSVPs that mean it.</h1>
-      <ButtonLink href="/app">Open ShwUp</ButtonLink>
-    </main>
+    <>
+      <LandingNav />
+      <main className="flex-1">
+        <Hero />
+        <Problem />
+        <HowItWorks />
+        <NoShowMath />
+        <WhyArc />
+        <Faq />
+        <FinalCta />
+      </main>
+      <Footer />
+    </>
   );
 }
