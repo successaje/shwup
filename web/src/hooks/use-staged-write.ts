@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import type { Hash } from "viem";
+import type { Hash, TransactionReceipt } from "viem";
 import { useConfig, useConnection, useSwitchChain } from "wagmi";
 import { simulateContract, waitForTransactionReceipt, writeContract } from "wagmi/actions";
 import { chain } from "@/config/chain";
@@ -13,7 +13,8 @@ import { toFriendlyError, type FriendlyError } from "@/lib/errors";
  */
 export type Stage = "idle" | "preparing" | "signing" | "settling" | "done" | "error";
 
-export type StagedResult = { hash: Hash; finalityMs: number };
+export type StagedResult = { hash: Hash; finalityMs: number; receipt: TransactionReceipt };
+export type RunOutcome = ({ ok: true } & StagedResult) | { ok: false; error: FriendlyError | null };
 
 type Request = Parameters<typeof simulateContract>[1];
 
@@ -27,8 +28,8 @@ export function useStagedWrite() {
   const busy = useRef(false);
 
   const run = useCallback(
-    async (request: Request): Promise<StagedResult | null> => {
-      if (busy.current) return null;
+    async (request: Request): Promise<RunOutcome> => {
+      if (busy.current) return { ok: false, error: null };
       busy.current = true;
       setError(null);
       setResult(null);
@@ -47,15 +48,16 @@ export function useStagedWrite() {
         const finalityMs = Math.round(performance.now() - sentAt);
         if (receipt.status !== "success") throw new Error("Transaction reverted");
 
-        const r = { hash, finalityMs };
+        const r = { hash, finalityMs, receipt };
         setResult(r);
         setStage("done");
-        return r;
+        return { ok: true, ...r };
       } catch (e) {
         console.error(e);
-        setError(toFriendlyError(e));
+        const friendly = toFriendlyError(e);
+        setError(friendly);
         setStage("error");
-        return null;
+        return { ok: false, error: friendly };
       } finally {
         busy.current = false;
       }
