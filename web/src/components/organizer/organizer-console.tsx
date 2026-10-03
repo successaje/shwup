@@ -14,6 +14,7 @@ import { ConnectPrompt } from "@/components/wallet/require-wallet";
 import { eventPhase, noShows, type ShwUpEvent } from "@/domain/event";
 import { useEvent } from "@/hooks/use-shwup";
 import { useNow } from "@/hooks/use-now";
+import { cn } from "@/lib/cn";
 import { formatUsd } from "@/lib/money";
 import { formatWhen, relative } from "@/lib/time";
 
@@ -63,7 +64,12 @@ export function OrganizerConsole({ id }: { id: bigint }) {
           </h1>
           <p className="mt-2 text-ink-2">
             {formatWhen(event.startsAt)} <span className="text-ink-3">· {relative(event.startsAt, now)}</span>
-            {event.details.location && <span className="block text-sm text-ink-3 sm:inline sm:text-base"> · {event.details.location}</span>}
+            {event.details.location && (
+              <span className="mt-0.5 block text-sm text-ink-3 sm:mt-0 sm:inline sm:text-base">
+                <span className="max-sm:hidden"> · </span>
+                {event.details.location}
+              </span>
+            )}
           </p>
         </div>
         {(phase === "doors" || phase === "open") && (
@@ -86,12 +92,14 @@ export function OrganizerConsole({ id }: { id: bigint }) {
         </div>
       )}
 
-      <div className="mt-8 grid gap-10 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="flex min-w-0 flex-col gap-10">
-          <Stats event={event} phase={phase} />
+      <Stats event={event} phase={phase} className="mt-8" />
+
+      <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="min-w-0">
           <AttendeeList event={event} phase={phase} onChange={refetch} />
         </div>
-        <aside className="flex flex-col gap-6">
+        {/* On phones the invite/settle actions come before the guest list: they're the job to do. */}
+        <aside className="flex flex-col gap-6 max-lg:order-first">
           {phase !== "cancelled" && phase !== "settled" && <SharePanel eventId={id} />}
           {(phase === "closed" || phase === "settled") && <SettleCard event={event} phase={phase} onSettled={refetch} />}
           {phase === "open" && event.checkedIn === 0 && <CancelEventCard event={event} onCancelled={refetch} />}
@@ -101,7 +109,7 @@ export function OrganizerConsole({ id }: { id: bigint }) {
   );
 }
 
-function Stats({ event, phase }: { event: ShwUpEvent; phase: ReturnType<typeof eventPhase> }) {
+function Stats({ event, phase, className }: { event: ShwUpEvent; phase: ReturnType<typeof eventPhase>; className?: string }) {
   const waiting = noShows(event);
   const items =
     phase === "settled"
@@ -117,7 +125,7 @@ function Stats({ event, phase }: { event: ShwUpEvent; phase: ReturnType<typeof e
         ];
 
   return (
-    <dl className="grid grid-cols-3 divide-x divide-line rounded-md border border-line bg-surface">
+    <dl className={cn("grid grid-cols-3 divide-x divide-line rounded-md border border-line bg-surface", className)}>
       {items.map((s) => (
         <div key={s.label} className="px-4 py-4 sm:px-5">
           <dt className="text-xs text-ink-3">{s.label}</dt>
