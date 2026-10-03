@@ -1,0 +1,105 @@
+// Smoke-tests ShwUp's money paths against a live Arc node, without signing anything.
+//
+// Uses eth_call / eth_estimateGas with state overrides on the *deployed* contract: we plant an
+// event and tickets directly in its storage and give test accounts USDC, then simulate the calls a
+// real user would make. This exercises Arc's actual execution layer (native USDC as msg.value,
+// push refunds, gas) — the parts a local anvil chain can't vouch for.
+//
+//   node scripts/arc-smoke.mjs [rpcUrl] [contractAddress]
+import { createPublicClient, encodeAbiParameters, getAddress, encodeFunctionData, http, keccak256, numberToHex, pad, parseEther, toHex } from "viem";
+import { arcTestnet } from "viem/chains";
+import { readFileSync } from "node:fs";
+
+const rpc = process.argv[2] ?? "https://rpc.testnet.arc.io";
+const shwup = process.argv[3] ?? "0xD1d6EE0c5309A09Df9ca4c2936956A49cca9eb71";
+const abiSrc = readFileSync(new URL("../src/lib/contracts/shwup-abi.ts", import.meta.url), "utf8");
+const abi = JSON.parse(abiSrc.slice(abiSrc.indexOf("["), abiSrc.lastIndexOf("]") + 1));
+
+const client = createPublicClient({ chain: arcTestnet, transport: http(rpc) });
+const organizer = getAddress("0x00000000000000000000000000000000000a11ce");
+const guest = getAddress("0x0000000000000000000000000000000000000b0b");
+const EVENT_ID = 999_999n; // far beyond real ids, so it never collides with live state
+const DEPOSIT = parseEther("5"); // $5 native USDC (18 decimals)
+
+const word = (n) => pad(toHex(n), { size: 32 });
+const mapSlot = (key, slot, keyType = "uint256") => BigInt(keccak256(encodeAbiParameters([{ type: keyType }, { type: "uint256" }], [key, slot])));
+const eventBase = mapSlot(EVENT_ID, 2n);
+const ticketSlot = (who) => BigInt(keccak256(encodeAbiParameters([{ type: "address" }, { type: "uint256" }], [who, mapSlot(EVENT_ID, 3n)])));
+
+/** Pack EventInfo into its 3 fixed storage words (layout from `forge inspect ShwUp storageLayout`). */
+function eventWords({ startsAt, cancelCutoff, checkInEndsAt, held, checkedIn = 0n, settled = false, bonus = 0n, policy = 0n }) {
+  const w0 = BigInt(organizer) | (DEPOSIT << 160n);
+  const w1 = startsAt | (cancelCutoff << 64n) | (checkInEndsAt << 128n) | (0n << 192n) | (held << 224n);
+  const w2 = checkedIn | (policy << 32n) | ((settled ? 1n : 0n) << 48n) | (bonus << 56n);
+  return [
+    { slot: numberToHex(eventBase, { size: 32 }), value: word(w0) },
+    { slot: numberToHex(eventBase + 1n, { size: 32 }), value: word(w1) },
+    { slot: numberToHex(eventBase + 2n, { size: 32 }), value: word(w2) },
+  ];
+}
+
+const ticket = (status, bonusClaimed = false) => ({ slot: numberToHex(ticketSlot(guest), { size: 32 }), value: word(BigInt(status) | ((bonusClaimed ? 1n : 0n) << 8n)) });
+
+const { timestamp, number } = await client.getBlock();
+const gasPrice = await client.getGasPrice();
+console.log(`Arc block ${number} · gas price ${Number(gasPrice) / 1e9} gwei · contract ${shwup}\n`);
+
+const funded = (addr) => ({ address: addr, balance: parseEther("100") });
+
+async function check(name, { from, fn, args, value = 0n, stateDiff, contractBalance = 0n }) {
+  const data = encodeFunctionData({ abi, functionName: fn, args });
+  const stateOverride = [funded(from), { address: shwup, balance: contractBalance, stateDiff }];
+  try {
+    await client.call({ account: from, to: shwup, data, value, stateOverride });
+    const gas = await client.estimateGas({ account: from, to: shwup, data, value, stateOverride });
+    const usd = Number(gas * gasPrice) / 1e18;
+    console.log(`✓ ${name.padEnd(46)} ${String(gas).padStart(7)} gas ≈ $${usd.toFixed(5)}`);
+    return true;
+  } catch (e) {
+    console.log(`✗ ${name}\n    ${e.shortMessage ?? e.message}`);
+    return false;
+  }
+}
+
+const now = timestamp;
+const results = [
+  await check("rsvp: native USDC deposit as msg.value", {
+    from: guest,
+    fn: "rsvp",
+    args: [EVENT_ID],
+    value: DEPOSIT,
+    stateDiff: eventWords({ startsAt: now + 3600n * 24n, cancelCutoff: now + 3600n * 12n, checkInEndsAt: now + 3600n * 27n, held: 0n }),
+  }),
+  await check("cancelRsvp: deposit pushed back to guest", {
+    from: guest,
+    fn: "cancelRsvp",
+    args: [EVENT_ID],
+    contractBalance: DEPOSIT,
+    stateDiff: [...eventWords({ startsAt: now + 3600n * 24n, cancelCutoff: now + 3600n * 12n, checkInEndsAt: now + 3600n * 27n, held: 1n }), ticket(1)],
+  }),
+  await check("checkIn: door refund pushed to guest", {
+    from: organizer,
+    fn: "checkIn",
+    args: [EVENT_ID, guest],
+    contractBalance: DEPOSIT,
+    stateDiff: [...eventWords({ startsAt: now + 600n, cancelCutoff: now, checkInEndsAt: now + 3600n * 3n, held: 1n }), ticket(1)],
+  }),
+  await check("settle: forfeit paid to organizer", {
+    from: guest,
+    fn: "settle",
+    args: [EVENT_ID],
+    contractBalance: DEPOSIT,
+    stateDiff: [...eventWords({ startsAt: now - 7200n, cancelCutoff: now - 9000n, checkInEndsAt: now - 60n, held: 1n, policy: 1n })],
+  }),
+  await check("claim: bonus share pushed to attendee", {
+    from: guest,
+    fn: "claim",
+    args: [EVENT_ID],
+    contractBalance: DEPOSIT,
+    stateDiff: [...eventWords({ startsAt: now - 7200n, cancelCutoff: now - 9000n, checkInEndsAt: now - 60n, held: 2n, checkedIn: 1n, settled: true, bonus: DEPOSIT }), ticket(2)],
+  }),
+];
+
+const failed = results.filter((ok) => !ok).length;
+console.log(failed ? `\n${failed} check(s) failed` : "\nAll money paths work on Arc.");
+process.exit(failed ? 1 : 0);
