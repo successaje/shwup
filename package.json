@@ -1,0 +1,15 @@
+{
+  "name": "shwup",
+  "private": true,
+  "packageManager": "pnpm@10.2.1",
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "build": "pnpm --filter web build",
+    "lint": "pnpm --filter web lint",
+    "typecheck": "pnpm --filter web typecheck",
+    "test": "pnpm --filter web test && pnpm test:contracts",
+    "test:contracts": "cd contracts && forge test",
+    "abi": "node scripts/export-abi.mjs",
+    "dev:chain": "./scripts/dev-chain.sh"
+  }
+}

@@ -1,0 +1,198 @@
+@import "tailwindcss";
+
+/*
+ * ShwUp design tokens.
+ * Personality: a paper ticket stub. Warm paper, ink type, one stamp-red accent used sparingly,
+ * and green reserved for exactly one meaning: money coming back to you.
+ */
+
+:root {
+  --paper: #f4f1e8;
+  --surface: #fbfaf5;
+  --sunken: #ebe7da;
+  --ink: #18170f;
+  --ink-2: #57544a;
+  --ink-3: #8a8677;
+  --line: #e0dbcc;
+  --line-strong: #c9c3b1;
+  --stamp: #d9481f;
+  --stamp-soft: #f8e1d6;
+  --ok: #157347;
+  --ok-soft: #dcefe2;
+  --warn: #9a6400;
+  --warn-soft: #f6ebcf;
+  --danger: #b42318;
+  --danger-soft: #f9dfdb;
+  --focus: #18170f;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #121110;
+    --surface: #1a1917;
+    --sunken: #0d0c0b;
+    --ink: #f1ede2;
+    --ink-2: #b3ae9f;
+    --ink-3: #7d796d;
+    --line: #2b2925;
+    --line-strong: #3d3a34;
+    --stamp: #ff6a3d;
+    --stamp-soft: #3a1d13;
+    --ok: #3fcf8e;
+    --ok-soft: #12291d;
+    --warn: #e7b04a;
+    --warn-soft: #2d2412;
+    --danger: #ff7a6e;
+    --danger-soft: #34160f;
+    --focus: #f1ede2;
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-sunken: var(--sunken);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-stamp: var(--stamp);
+  --color-stamp-soft: var(--stamp-soft);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+
+  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  /* Type scale (~1.25, rounded to whole pixels) */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1.125rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.375rem;
+  --text-base: 1rem;
+  --text-base--line-height: 1.5rem;
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.625rem;
+  --text-xl: 1.375rem;
+  --text-xl--line-height: 1.75rem;
+  --text-2xl: 1.75rem;
+  --text-2xl--line-height: 2.125rem;
+  --text-3xl: 2.25rem;
+  --text-3xl--line-height: 2.5rem;
+  --text-4xl: 3rem;
+  --text-4xl--line-height: 3.125rem;
+  --text-5xl: 4rem;
+  --text-5xl--line-height: 4rem;
+
+  /* Radii: small and consistent. Tickets get their shape from notches, not rounding. */
+  --radius-xs: 3px;
+  --radius-sm: 5px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  --ease-out-quick: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --animate-rise: rise 320ms var(--ease-out-quick) both;
+  --animate-fade: fade 200ms ease-out both;
+  --animate-stamp: stamp 420ms cubic-bezier(0.3, 1.4, 0.5, 1) both;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes stamp {
+  0% {
+    opacity: 0;
+    transform: scale(1.6) rotate(-8deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(-4deg);
+  }
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+  }
+
+  ::selection {
+    background: var(--stamp);
+    color: var(--paper);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 1ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 1ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* Money and counts: tabular numbers so they don't jitter while updating. */
+  .num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+
+  /* Ticket stub: notches cut into both sides at the perforation line (--notch-y). */
+  .ticket {
+    --notch: 11px;
+    --notch-y: 62%;
+    background: var(--surface);
+    mask:
+      radial-gradient(circle var(--notch) at 0 var(--notch-y), #0000 98%, #000) left / 51% 100% no-repeat,
+      radial-gradient(circle var(--notch) at 100% var(--notch-y), #0000 98%, #000) right / 51% 100% no-repeat;
+  }
+
+  .perforation {
+    background-image: linear-gradient(to right, var(--line-strong) 50%, transparent 0);
+    background-size: 10px 1px;
+    background-repeat: repeat-x;
+    height: 1px;
+  }
+}

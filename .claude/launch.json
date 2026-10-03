@@ -1,0 +1,7 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    { "name": "chain", "runtimeExecutable": "./scripts/dev-chain.sh", "port": 8545 },
+    { "name": "web", "runtimeExecutable": "pnpm", "runtimeArgs": ["--filter", "web", "dev", "--port", "3100"], "port": 3100 }
+  ]
+}
