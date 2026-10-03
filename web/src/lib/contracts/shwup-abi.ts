@@ -200,6 +200,11 @@ export const shwupAbi = [
         "internalType": "enum ShwUp.ForfeitPolicy"
       },
       {
+        "name": "beneficiary",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
         "name": "metadata",
         "type": "string",
         "internalType": "string"
@@ -212,7 +217,7 @@ export const shwupAbi = [
         "internalType": "uint256"
       }
     ],
-    "stateMutability": "nonpayable"
+    "stateMutability": "payable"
   },
   {
     "type": "function",
@@ -395,11 +400,60 @@ export const shwupAbi = [
             "internalType": "uint128"
           },
           {
+            "name": "beneficiary",
+            "type": "address",
+            "internalType": "address"
+          },
+          {
+            "name": "bond",
+            "type": "uint96",
+            "internalType": "uint96"
+          },
+          {
+            "name": "bondPerGuest",
+            "type": "uint96",
+            "internalType": "uint96"
+          },
+          {
             "name": "metadata",
             "type": "string",
             "internalType": "string"
           }
         ]
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "getOffers",
+    "inputs": [
+      {
+        "name": "eventId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "offset",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "limit",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "holders",
+        "type": "address[]",
+        "internalType": "address[]"
+      },
+      {
+        "name": "offeredTo",
+        "type": "address[]",
+        "internalType": "address[]"
       }
     ],
     "stateMutability": "view"
@@ -465,6 +519,24 @@ export const shwupAbi = [
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "offerSpot",
+    "inputs": [
+      {
+        "name": "eventId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -548,6 +620,47 @@ export const shwupAbi = [
   },
   {
     "type": "function",
+    "name": "takeSpot",
+    "inputs": [
+      {
+        "name": "eventId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "from",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "takeSpotAs",
+    "inputs": [
+      {
+        "name": "eventId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "from",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "name",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
     "name": "ticketOf",
     "inputs": [
       {
@@ -576,6 +689,16 @@ export const shwupAbi = [
             "name": "bonusClaimed",
             "type": "bool",
             "internalType": "bool"
+          },
+          {
+            "name": "offered",
+            "type": "bool",
+            "internalType": "bool"
+          },
+          {
+            "name": "offeredTo",
+            "type": "address",
+            "internalType": "address"
           }
         ]
       }
@@ -606,6 +729,63 @@ export const shwupAbi = [
     "inputs": [],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "withdrawOffer",
+    "inputs": [
+      {
+        "name": "eventId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "BondPosted",
+    "inputs": [
+      {
+        "name": "eventId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "amount",
+        "type": "uint96",
+        "indexed": false,
+        "internalType": "uint96"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "BondReturned",
+    "inputs": [
+      {
+        "name": "eventId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "organizer",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint96",
+        "indexed": false,
+        "internalType": "uint96"
+      }
+    ],
+    "anonymous": false
   },
   {
     "type": "event",
@@ -852,6 +1032,25 @@ export const shwupAbi = [
   },
   {
     "type": "event",
+    "name": "OfferWithdrawn",
+    "inputs": [
+      {
+        "name": "eventId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "holder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "PaymentDeferred",
     "inputs": [
       {
@@ -896,6 +1095,31 @@ export const shwupAbi = [
   },
   {
     "type": "event",
+    "name": "SpotOffered",
+    "inputs": [
+      {
+        "name": "eventId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "holder",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "SpotReleased",
     "inputs": [
       {
@@ -920,6 +1144,37 @@ export const shwupAbi = [
     "anonymous": false
   },
   {
+    "type": "event",
+    "name": "SpotTransferred",
+    "inputs": [
+      {
+        "name": "eventId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "from",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "to",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "deposit",
+        "type": "uint96",
+        "indexed": false,
+        "internalType": "uint96"
+      }
+    ],
+    "anonymous": false
+  },
+  {
     "type": "error",
     "name": "AlreadyHolding",
     "inputs": []
@@ -932,6 +1187,11 @@ export const shwupAbi = [
   {
     "type": "error",
     "name": "CancellationClosed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CannotTakeOwnSpot",
     "inputs": []
   },
   {
@@ -976,6 +1236,16 @@ export const shwupAbi = [
   },
   {
     "type": "error",
+    "name": "InvalidBeneficiary",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidBond",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "InvalidDeposit",
     "inputs": []
   },
@@ -1002,6 +1272,11 @@ export const shwupAbi = [
   {
     "type": "error",
     "name": "NotAuthorizedChecker",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotOffered",
     "inputs": []
   },
   {

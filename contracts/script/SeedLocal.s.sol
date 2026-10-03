@@ -22,24 +22,38 @@ contract SeedLocal is Script {
         ShwUp shwup = new ShwUp();
         uint64 nowTs = uint64(block.timestamp);
 
-        // Doors open now: starts in 30 minutes, check-in runs 3 hours.
-        uint256 tonight = shwup.createEvent(
+        // Doors open now: starts in 30 minutes, check-in runs 3 hours. The host posted a $50 bond.
+        uint256 tonight = shwup.createEvent{value: 50 ether}(
             5 ether,
             40,
             nowTs + 30 minutes,
             nowTs + 20 minutes,
             nowTs + 3 hours + 30 minutes,
             ShwUp.ForfeitPolicy.Attendees,
+            address(0),
             '{"name":"Arc Builders Night","location":"The Workshop, 14 Herbert Macaulay Way","description":"Lightning demos from people shipping on Arc, then pizza. Bring a laptop if you want to show something."}'
         );
+        // Full class: two stations, both taken. One guest will offer theirs up.
         uint256 nextWeek = shwup.createEvent(
             10 ether,
-            12,
+            2,
             nowTs + 6 days,
             nowTs + 5 days,
             nowTs + 6 days + 2 hours,
             ShwUp.ForfeitPolicy.Organizer,
-            '{"name":"Sourdough 101","location":"Common Kitchen","description":"Hands-on class. Twelve stations, so every spot counts."}'
+            address(0),
+            '{"name":"Sourdough 101","location":"Common Kitchen","description":"Hands-on class. Two stations, so every spot counts."}'
+        );
+        // No-show deposits go to a cause.
+        uint256 cleanup = shwup.createEvent(
+            3 ether,
+            0,
+            nowTs + 3 days,
+            nowTs + 2 days,
+            nowTs + 3 days + 3 hours,
+            ShwUp.ForfeitPolicy.Beneficiary,
+            address(0xF00D),
+            '{"name":"Beach Cleanup","location":"Elegushi Beach, Lekki","description":"Gloves and bags provided.","cause":"Lagos Food Bank"}'
         );
         vm.stopBroadcast();
 
@@ -47,6 +61,8 @@ contract SeedLocal is Script {
             vm.startBroadcast(guests[i]);
             shwup.rsvp{value: 5 ether}(tonight);
             if (i < 2) shwup.rsvp{value: 10 ether}(nextWeek);
+            if (i == 0) shwup.offerSpot(nextWeek, address(0));
+            if (i == 2) shwup.rsvp{value: 3 ether}(cleanup);
             vm.stopBroadcast();
         }
 

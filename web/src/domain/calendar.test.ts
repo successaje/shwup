@@ -16,6 +16,9 @@ const event: ShwUpEvent = {
   cancelled: false,
   settled: false,
   bonusPerAttendee: 0n,
+  beneficiary: "0x0000000000000000000000000000000000000000",
+  bond: 0n,
+  bondPerGuest: 0n,
   details: { name: "Builders; Night, Lagos", location: "Co-Creation Hub, Yaba", description: "Line one\nLine two" },
 };
 const url = "https://shwup.vercel.app/e/7";

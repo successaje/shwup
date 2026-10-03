@@ -1,3 +1,4 @@
+import type { Address } from "viem";
 import { eventPhase, TicketStatus, type EventPhase, type ShwUpEvent } from "@/domain/event";
 
 /** Visual state of a ticket stub. */
@@ -8,16 +9,33 @@ export type StubState = "preview" | "held" | "checkedIn" | "released" | "noShow"
  * guest sees so the page never renders contradictory states.
  */
 export type GuestView =
-  | { kind: "invite"; phase: EventPhase; full: boolean; rejoin: boolean } // can hold a spot
+  | { kind: "invite"; phase: EventPhase; full: boolean; rejoin: boolean; handedOver: boolean; offer: Address | null } // can hold a spot
   | { kind: "closed"; phase: EventPhase } // can't hold a spot and never had one
-  | { kind: "holding"; phase: EventPhase; canCancel: boolean } // has a spot, waiting to arrive
+  | { kind: "holding"; phase: EventPhase; canCancel: boolean; offered: boolean } // has a spot, waiting to arrive
   | { kind: "arrived"; bonus: "none" | "pending" | "claimable" | "claimed" } // checked in
   | { kind: "missed"; settled: boolean } // held a spot, check-in closed without them
   | { kind: "refund"; claimable: boolean }; // event cancelled
 
-export type TicketLike = { status: TicketStatus; bonusClaimed: boolean; claimable: bigint };
+export type TicketLike = { status: TicketStatus; bonusClaimed: boolean; claimable: bigint; offered?: boolean };
 
-export function guestView(event: ShwUpEvent, ticket: TicketLike | undefined, now = new Date()): GuestView {
+/** A spot someone has put up for grabs: `to` is who may take it (zero address = anyone). */
+export type SpotOffer = { holder: Address; to: Address };
+
+const ZERO = "0x0000000000000000000000000000000000000000";
+
+/** The offer `viewer` should take, preferring one made to them by name. */
+export function offerFor(offers: readonly SpotOffer[] | undefined, viewer: Address | undefined): Address | null {
+  const mine = viewer && offers?.find((o) => o.to.toLowerCase() === viewer.toLowerCase() && o.holder.toLowerCase() !== viewer.toLowerCase());
+  const open = offers?.find((o) => o.to === ZERO && o.holder.toLowerCase() !== viewer?.toLowerCase());
+  return (mine || open)?.holder ?? null;
+}
+
+export function guestView(
+  event: ShwUpEvent,
+  ticket: TicketLike | undefined,
+  now = new Date(),
+  offer: Address | null = null,
+): GuestView {
   const phase = eventPhase(event, now);
   const status = ticket?.status ?? TicketStatus.None;
 
@@ -35,12 +53,20 @@ export function guestView(event: ShwUpEvent, ticket: TicketLike | undefined, now
 
   if (status === TicketStatus.Held) {
     if (phase === "closed" || phase === "settled") return { kind: "missed", settled: phase === "settled" };
-    return { kind: "holding", phase, canCancel: now < event.cancelCutoff };
+    return { kind: "holding", phase, canCancel: now < event.cancelCutoff, offered: !!ticket?.offered };
   }
 
   if (phase === "open" || phase === "doors") {
-    const full = event.capacity > 0 && event.held >= event.capacity;
-    return { kind: "invite", phase, full, rejoin: status === TicketStatus.Released };
+    // Taking someone's spot works even when the event is full.
+    const full = !offer && event.capacity > 0 && event.held >= event.capacity;
+    return {
+      kind: "invite",
+      phase,
+      full,
+      rejoin: status === TicketStatus.Released || status === TicketStatus.Transferred,
+      handedOver: status === TicketStatus.Transferred,
+      offer,
+    };
   }
   return { kind: "closed", phase };
 }

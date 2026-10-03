@@ -4,6 +4,7 @@ import { zeroAddress, type Address } from "viem";
 import { useReadContract, useReadContracts } from "wagmi";
 import { chain, shwupAddress } from "@/config/chain";
 import { toShwUpEvent, type ShwUpEvent, type TicketStatus } from "@/domain/event";
+import type { SpotOffer } from "@/domain/guest";
 import { shwupAbi } from "@/lib/contracts/shwup-abi";
 
 const contract = { address: shwupAddress!, abi: shwupAbi, chainId: chain.id } as const;
@@ -22,7 +23,7 @@ export function useEvent(id: bigint | undefined, { live = false } = {}) {
   return { ...query, event: query.data && id !== undefined ? toShwUpEvent(id, query.data) : undefined };
 }
 
-export type TicketView = { status: TicketStatus; bonusClaimed: boolean; claimable: bigint };
+export type TicketView = { status: TicketStatus; bonusClaimed: boolean; claimable: bigint; offered: boolean };
 
 /** The connected person's ticket for an event, polled fast while they wait at the door. */
 export function useTicket(id: bigint | undefined, holder: Address | undefined, { live = false } = {}) {
@@ -41,6 +42,7 @@ export function useTicket(id: bigint | undefined, holder: Address | undefined, {
         status: query.data[0].status as TicketStatus,
         bonusClaimed: query.data[0].bonusClaimed,
         claimable: query.data[1],
+        offered: query.data[0].offered,
       }
     : undefined;
   return { ...query, ticket };
@@ -83,8 +85,13 @@ export function useMyEvents(owner: Address | undefined) {
   const ticketById = new Map<bigint, TicketView>();
   if (tickets.data) {
     attending.forEach((id, i) => {
-      const t = tickets.data[i * 2] as { status: number; bonusClaimed: boolean };
-      ticketById.set(id, { status: t.status as TicketStatus, bonusClaimed: t.bonusClaimed, claimable: tickets.data[i * 2 + 1] as bigint });
+      const t = tickets.data[i * 2] as { status: number; bonusClaimed: boolean; offered: boolean };
+      ticketById.set(id, {
+        status: t.status as TicketStatus,
+        bonusClaimed: t.bonusClaimed,
+        claimable: tickets.data[i * 2 + 1] as bigint,
+        offered: t.offered,
+      });
     });
   }
 
@@ -113,6 +120,18 @@ export function useAttendees(id: bigint | undefined, { live = false } = {}) {
     ? query.data[0].map((address, i) => ({ address, status: query.data[1][i] as TicketStatus }))
     : undefined;
   return { ...query, rows };
+}
+
+/** Spots guests have put up for someone else to take. First 500 attendees, like `useAttendees`. */
+export function useOffers(id: bigint | undefined, { live = false } = {}) {
+  const query = useReadContract({
+    ...contract,
+    functionName: "getOffers",
+    args: [id ?? 0n, 0n, 500n],
+    query: { enabled: isConfigured && id !== undefined, refetchInterval: live ? 2_000 : 10_000 },
+  });
+  const offers: SpotOffer[] | undefined = query.data?.[0].map((holder, i) => ({ holder, to: query.data[1][i] }));
+  return { ...query, offers };
 }
 
 /** Public display names for a set of wallets. Missing names are simply absent from the map. */
