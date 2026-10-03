@@ -137,7 +137,7 @@ function DoorSetup({ doorKey, onUseWallet }: { doorKey: ReturnType<typeof useDoo
       <h2 className="mt-4 font-display text-xl font-medium tracking-tight">Scan without wallet pop-ups</h2>
       <p className="mt-2 text-sm text-ink-2">
         Make this phone a door key: one approval authorizes it for this event and gives it {formatUsd(DOOR_KEY_FUNDING)} for network
-        fees — enough for over a hundred check-ins. It can only check guests in; it can&apos;t move deposits anywhere else.
+        fees — enough for about a hundred check-ins. It can only check guests in; it can&apos;t move deposits anywhere else.
       </p>
       <Button className="mt-5" block size="lg" loading={tx.busy} onClick={doorKey.authorize}>
         Set up this device
@@ -153,7 +153,7 @@ function DoorSetup({ doorKey, onUseWallet }: { doorKey: ReturnType<typeof useDoo
 function DoorKeyStatus({ doorKey, usingWallet, organizer }: { doorKey: ReturnType<typeof useDoorKey>; usingWallet: boolean; organizer: `0x${string}` }) {
   const [returning, setReturning] = useState(false);
   if (usingWallet) return <p className="text-xs text-ink-3">Scanning with your wallet — approve each check-in when prompted.</p>;
-  const scansLeft = doorKey.balance !== undefined ? Number(doorKey.balance / 2n / 10n ** 15n) : undefined; // ~$0.002 per check-in
+  const scansLeft = doorKey.balance !== undefined ? Number(doorKey.balance / (25n * 10n ** 14n)) : undefined; // ~$0.0025 per check-in, measured on Arc
 
   const giveBack = async () => {
     setReturning(true);

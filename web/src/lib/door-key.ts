@@ -46,5 +46,5 @@ export function forgetDoorKey(chainId: number, contract: Address, eventId: bigin
   }
 }
 
-/** Gas sent to a new door key: ~$0.25 covers well over a hundred check-ins at Arc's ~$0.002 each. */
+/** Gas sent to a new door key: ~$0.25 covers about a hundred check-ins at Arc's measured ~$0.0025 each. */
 export const DOOR_KEY_FUNDING = 25n * 10n ** 16n;
