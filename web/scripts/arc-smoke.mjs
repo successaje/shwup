@@ -18,27 +18,43 @@ const abi = JSON.parse(abiSrc.slice(abiSrc.indexOf("["), abiSrc.lastIndexOf("]")
 const client = createPublicClient({ chain: arcTestnet, transport: http(rpc) });
 const organizer = getAddress("0x00000000000000000000000000000000000a11ce");
 const guest = getAddress("0x0000000000000000000000000000000000000b0b");
+const leaver = getAddress("0x000000000000000000000000000000000000c0de");
+const beneficiary = getAddress("0x000000000000000000000000000000000000feed");
 const EVENT_ID = 999_999n; // far beyond real ids, so it never collides with live state
 const DEPOSIT = parseEther("5"); // $5 native USDC (18 decimals)
 
 const word = (n) => pad(toHex(n), { size: 32 });
 const mapSlot = (key, slot, keyType = "uint256") => BigInt(keccak256(encodeAbiParameters([{ type: keyType }, { type: "uint256" }], [key, slot])));
 const eventBase = mapSlot(EVENT_ID, 2n);
-const ticketSlot = (who) => BigInt(keccak256(encodeAbiParameters([{ type: "address" }, { type: "uint256" }], [who, mapSlot(EVENT_ID, 3n)])));
+const ticketSlotOf = (who) => BigInt(keccak256(encodeAbiParameters([{ type: "address" }, { type: "uint256" }], [who, mapSlot(EVENT_ID, 3n)])));
 
-/** Pack EventInfo into its 3 fixed storage words (layout from `forge inspect ShwUp storageLayout`). */
-function eventWords({ startsAt, cancelCutoff, checkInEndsAt, held, checkedIn = 0n, settled = false, bonus = 0n, policy = 0n }) {
+/** Pack EventInfo into its 5 fixed storage words (layout from `forge inspect ShwUp storageLayout`). */
+function eventWords({
+  startsAt,
+  cancelCutoff,
+  checkInEndsAt,
+  held,
+  checkedIn = 0n,
+  cancelled = false,
+  settled = false,
+  bonus = 0n,
+  policy = 0n,
+  payee = 0n,
+  bond = 0n,
+  bondPerGuest = 0n,
+}) {
   const w0 = BigInt(organizer) | (DEPOSIT << 160n);
   const w1 = startsAt | (cancelCutoff << 64n) | (checkInEndsAt << 128n) | (0n << 192n) | (held << 224n);
-  const w2 = checkedIn | (policy << 32n) | ((settled ? 1n : 0n) << 48n) | (bonus << 56n);
-  return [
-    { slot: numberToHex(eventBase, { size: 32 }), value: word(w0) },
-    { slot: numberToHex(eventBase + 1n, { size: 32 }), value: word(w1) },
-    { slot: numberToHex(eventBase + 2n, { size: 32 }), value: word(w2) },
-  ];
+  const w2 = checkedIn | (policy << 32n) | ((cancelled ? 1n : 0n) << 40n) | ((settled ? 1n : 0n) << 48n) | (bonus << 56n);
+  const w3 = BigInt(payee) | (bond << 160n);
+  return [w0, w1, w2, w3, bondPerGuest].map((w, i) => ({ slot: numberToHex(eventBase + BigInt(i), { size: 32 }), value: word(w) }));
 }
 
-const ticket = (status, bonusClaimed = false) => ({ slot: numberToHex(ticketSlot(guest), { size: 32 }), value: word(BigInt(status) | ((bonusClaimed ? 1n : 0n) << 8n)) });
+/** Ticket word: status | bonusClaimed | offered | offeredTo. */
+const ticket = (status, { bonusClaimed = false, offered = false, who = guest } = {}) => ({
+  slot: numberToHex(ticketSlotOf(who), { size: 32 }),
+  value: word(BigInt(status) | ((bonusClaimed ? 1n : 0n) << 8n) | ((offered ? 1n : 0n) << 16n)),
+});
 
 const { timestamp, number } = await client.getBlock();
 const gasPrice = await client.getGasPrice();
@@ -104,6 +120,38 @@ const results = [
     args: [EVENT_ID],
     contractBalance: DEPOSIT,
     stateDiff: [...eventWords({ startsAt: now - 7200n, cancelCutoff: now - 9000n, checkInEndsAt: now - 60n, held: 2n, checkedIn: 1n, settled: true, bonus: DEPOSIT }), ticket(2)],
+  }),
+  await check("takeSpot: deposit passed to the guest leaving", {
+    from: guest,
+    fn: "takeSpot",
+    args: [EVENT_ID, leaver],
+    value: DEPOSIT,
+    contractBalance: DEPOSIT,
+    stateDiff: [...eventWords({ startsAt: now + 3600n, cancelCutoff: now - 60n, checkInEndsAt: now + 3600n * 4n, held: 1n }), ticket(1, { offered: true, who: leaver })],
+  }),
+  await check("settle: forfeit paid to beneficiary", {
+    from: guest,
+    fn: "settle",
+    args: [EVENT_ID],
+    contractBalance: DEPOSIT,
+    stateDiff: eventWords({ startsAt: now - 7200n, cancelCutoff: now - 9000n, checkInEndsAt: now - 60n, held: 1n, policy: 2n, payee: beneficiary }),
+  }),
+  await check("cancelEvent: bond split, dust back to organizer", {
+    from: organizer,
+    fn: "cancelEvent",
+    args: [EVENT_ID],
+    contractBalance: DEPOSIT * 3n + parseEther("10"),
+    stateDiff: eventWords({ startsAt: now + 3600n * 24n, cancelCutoff: now + 3600n * 12n, checkInEndsAt: now + 3600n * 27n, held: 3n, bond: parseEther("10") }),
+  }),
+  await check("claim: deposit + bond share after cancellation", {
+    from: guest,
+    fn: "claim",
+    args: [EVENT_ID],
+    contractBalance: DEPOSIT + parseEther("5"),
+    stateDiff: [
+      ...eventWords({ startsAt: now + 3600n * 24n, cancelCutoff: now + 3600n * 12n, checkInEndsAt: now + 3600n * 27n, held: 1n, cancelled: true, bond: parseEther("5"), bondPerGuest: parseEther("5") }),
+      ticket(1),
+    ],
   }),
 ];
 

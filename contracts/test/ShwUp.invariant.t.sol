@@ -4,8 +4,9 @@ pragma solidity 0.8.28;
 import {Test} from "forge-std/Test.sol";
 import {ShwUp} from "../src/ShwUp.sol";
 
-/// @dev Drives random sequences of RSVPs, cancellations, check-ins, event cancellations, settlement and
-///      claims across a handful of events while tracking what the contract owes.
+/// @dev Drives random sequences of RSVPs, cancellations, spot hand-overs, check-ins, event cancellations,
+///      settlement and claims across a handful of events (every forfeit policy, with and without an
+///      organizer bond) while tracking what the contract owes.
 contract ShwUpHandler is Test {
     ShwUp public immutable shwup;
     address[] public actors;
@@ -21,16 +22,19 @@ contract ShwUpHandler is Test {
         }
         vm.deal(organizer, 1_000 ether);
         uint64 startsAt = uint64(block.timestamp + 1 days);
-        for (uint256 i; i < 3; ++i) {
+        for (uint256 i; i < 4; ++i) {
+            ShwUp.ForfeitPolicy policy = ShwUp.ForfeitPolicy(i % 3);
+            address beneficiary = policy == ShwUp.ForfeitPolicy.Beneficiary ? address(0xFEED) : address(0);
             vm.prank(organizer);
             eventIds.push(
-                shwup.createEvent(
+                shwup.createEvent{value: i * 1.13 ether}(
                     uint96(1 ether + i * 0.37 ether),
                     0,
                     startsAt,
                     startsAt - 6 hours,
                     startsAt + 2 hours,
-                    ShwUp.ForfeitPolicy(i % 2),
+                    policy,
+                    beneficiary,
                     ""
                 )
             );
@@ -57,17 +61,56 @@ contract ShwUpHandler is Test {
         shwup.cancelRsvp(_event(e));
     }
 
+    uint256 public transfers;
+
+    /// @dev Prefers an actor who holds a spot, like `checkIn`.
+    function offerSpot(uint256 e, uint256 a, uint256 to) external {
+        uint256 id = _event(e);
+        address who = _holder(id, a);
+        vm.prank(who);
+        shwup.offerSpot(id, to % 3 == 0 ? _actor(to / 3) : address(0));
+    }
+
+    function withdrawOffer(uint256 e, uint256 a) external {
+        vm.prank(_actor(a));
+        shwup.withdrawOffer(_event(e));
+    }
+
+    /// @dev Takes a spot on offer, if any, with an actor allowed to take it (preferring one without a spot).
+    function takeSpot(uint256 e, uint256 o, uint256 a) external {
+        uint256 id = _event(e);
+        (address[] memory holders, address[] memory offeredTo) = shwup.getOffers(id, 0, 100);
+        if (holders.length == 0) return;
+        uint256 k = o % holders.length;
+        address taker = offeredTo[k];
+        if (taker == address(0)) {
+            taker = _actor(a);
+            for (uint256 i; i < actors.length; ++i) {
+                ShwUp.TicketStatus st = shwup.ticketOf(id, _actor(a + i)).status;
+                if (st != ShwUp.TicketStatus.Held && st != ShwUp.TicketStatus.CheckedIn) {
+                    taker = _actor(a + i);
+                    break;
+                }
+            }
+        }
+        uint96 deposit = shwup.getEvent(id).deposit;
+        vm.prank(taker);
+        shwup.takeSpot{value: deposit}(id, holders[k]);
+        ++transfers;
+    }
+
+    function _holder(uint256 id, uint256 a) internal view returns (address) {
+        for (uint256 i; i < actors.length; ++i) {
+            address candidate = _actor(a + i);
+            if (shwup.ticketOf(id, candidate).status == ShwUp.TicketStatus.Held) return candidate;
+        }
+        return _actor(a);
+    }
+
     /// @dev Prefers an actor who actually holds a spot so check-ins aren't mostly no-ops.
     function checkIn(uint256 e, uint256 a) external {
         uint256 id = _event(e);
-        address who = _actor(a);
-        for (uint256 i; i < actors.length; ++i) {
-            address candidate = _actor(a + i);
-            if (shwup.ticketOf(id, candidate).status == ShwUp.TicketStatus.Held) {
-                who = candidate;
-                break;
-            }
-        }
+        address who = _holder(id, a);
         vm.prank(organizer);
         shwup.checkIn(id, who);
     }
@@ -97,9 +140,10 @@ contract ShwUpHandler is Test {
         for (uint256 i; i < eventIds.length; ++i) {
             uint256 id = eventIds[i];
             ShwUp.EventInfo memory info = shwup.getEvent(id);
+            if (!info.cancelled && !info.settled) owed += info.bond;
             for (uint256 j; j < actors.length; ++j) {
                 ShwUp.Ticket memory t = shwup.ticketOf(id, actors[j]);
-                if (t.status == ShwUp.TicketStatus.Held && !info.settled) owed += info.deposit;
+                if (t.status == ShwUp.TicketStatus.Held && !info.settled) owed += info.deposit + info.bondPerGuest;
                 if (t.status == ShwUp.TicketStatus.CheckedIn && info.settled && !t.bonusClaimed) {
                     owed += info.bonusPerAttendee;
                 }

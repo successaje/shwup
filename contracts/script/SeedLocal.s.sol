@@ -30,6 +30,7 @@ contract SeedLocal is Script {
             nowTs + 20 minutes,
             nowTs + 3 hours + 30 minutes,
             ShwUp.ForfeitPolicy.Attendees,
+            address(0),
             '{"name":"Arc Builders Night","location":"The Workshop, 14 Herbert Macaulay Way","description":"Lightning demos from people shipping on Arc, then pizza. Bring a laptop if you want to show something."}'
         );
         uint256 nextWeek = shwup.createEvent(
@@ -39,6 +40,7 @@ contract SeedLocal is Script {
             nowTs + 5 days,
             nowTs + 6 days + 2 hours,
             ShwUp.ForfeitPolicy.Organizer,
+            address(0),
             '{"name":"Sourdough 101","location":"Common Kitchen","description":"Hands-on class. Twelve stations, so every spot counts."}'
         );
         vm.stopBroadcast();

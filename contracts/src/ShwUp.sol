@@ -3,17 +3,22 @@ pragma solidity 0.8.28;
 
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-/// @title ShwUp — refundable RSVP deposits
+/// @title ShwUp — refundable commitments to show up
 /// @notice Attendees hold a spot by paying a deposit and get it back when they are checked in at
-///         the door. Deposits of attendees who never arrive are forfeited, either split among the
-///         people who did come or paid to the organizer.
+///         the door. Deposits of attendees who never arrive are forfeited: split among the people
+///         who did come, paid to the organizer, or sent to a beneficiary fixed when the event was
+///         created. A held spot can be handed to someone else, who pays the deposit to the person
+///         leaving. Organizers can post a bond that is split among guests if they cancel.
 /// @dev On Arc, USDC is the native currency, so deposits are plain `msg.value` (18 decimals).
-///      Funds only ever leave the contract to: the attendee who paid them (refund / cancellation),
-///      checked-in attendees (bonus share of forfeits), or the organizer (forfeits, rounding dust).
+///      Funds only ever leave the contract to: the attendee who paid them (refund / cancellation /
+///      hand-over), checked-in attendees (bonus share of forfeits), the organizer (forfeits,
+///      rounding dust, their bond), the event's beneficiary (forfeits), or guests of a cancelled
+///      event (the organizer's bond).
 ///
 ///      Invariant: address(this).balance ==
 ///          Σ deposits of Held tickets (unsettled, uncancelled events)
-///        + Σ deposits of Held tickets in cancelled events (claimable refunds)
+///        + Σ (deposit + bondPerGuest) of Held tickets in cancelled events (claimable)
+///        + Σ bonds of unsettled, uncancelled events
 ///        + Σ unclaimed bonuses
 ///        + Σ credits
 contract ShwUp is ReentrancyGuard {
@@ -21,14 +26,16 @@ contract ShwUp is ReentrancyGuard {
 
     enum ForfeitPolicy {
         Attendees, // no-show deposits are split among checked-in attendees
-        Organizer // no-show deposits are paid to the organizer
+        Organizer, // no-show deposits are paid to the organizer
+        Beneficiary // no-show deposits are paid to the event's beneficiary (e.g. a charity or community fund)
     }
 
     enum TicketStatus {
         None,
         Held, // deposit paid, not yet checked in
         CheckedIn, // deposit refunded at the door
-        Released // attendee cancelled, or refunded after the event was cancelled
+        Released, // attendee cancelled, or refunded after the event was cancelled
+        Transferred // handed to someone else, who paid the deposit back to this attendee
     }
 
     struct EventInfo {
@@ -44,12 +51,17 @@ contract ShwUp is ReentrancyGuard {
         bool cancelled;
         bool settled;
         uint128 bonusPerAttendee; // set at settlement
+        address beneficiary; // receives forfeits under ForfeitPolicy.Beneficiary
+        uint96 bond; // posted by the organizer; returned at settlement, or split among guests on cancel
+        uint96 bondPerGuest; // set on cancellation
         string metadata; // JSON: name, location, description
     }
 
     struct Ticket {
         TicketStatus status;
         bool bonusClaimed;
+        bool offered; // the holder has put this spot up for someone else to take
+        address offeredTo; // address(0) = anyone may take it
     }
 
     // ───────────────────────────────────────────── constants
@@ -104,6 +116,11 @@ contract ShwUp is ReentrancyGuard {
     );
     event BonusClaimed(uint256 indexed eventId, address indexed attendee, uint128 amount);
     event EventUpdated(uint256 indexed eventId);
+    event BondPosted(uint256 indexed eventId, uint96 amount);
+    event BondReturned(uint256 indexed eventId, address indexed organizer, uint96 amount);
+    event SpotOffered(uint256 indexed eventId, address indexed holder, address indexed to);
+    event OfferWithdrawn(uint256 indexed eventId, address indexed holder);
+    event SpotTransferred(uint256 indexed eventId, address indexed from, address indexed to, uint96 deposit);
     event NameSet(address indexed account, string name);
     event PaymentDeferred(address indexed to, uint256 amount);
     event CreditWithdrawn(address indexed to, uint256 amount);
@@ -133,6 +150,10 @@ contract ShwUp is ReentrancyGuard {
     error TransferFailed();
     error NameTooLong();
     error EventClosed();
+    error InvalidBeneficiary();
+    error InvalidBond();
+    error NotOffered();
+    error CannotTakeOwnSpot();
 
     // ───────────────────────────────────────────── modifiers
 
@@ -143,7 +164,9 @@ contract ShwUp is ReentrancyGuard {
 
     // ───────────────────────────────────────────── organizer
 
-    /// @notice Create an event. The caller becomes its organizer.
+    /// @notice Create an event. The caller becomes its organizer. Any value sent is posted as a bond:
+    ///         returned at settlement, or split among the guests holding spots if the event is cancelled.
+    /// @param beneficiary Receives forfeits under `ForfeitPolicy.Beneficiary`; must be zero otherwise.
     function createEvent(
         uint96 deposit,
         uint32 capacity,
@@ -151,9 +174,12 @@ contract ShwUp is ReentrancyGuard {
         uint64 cancelCutoff,
         uint64 checkInEndsAt,
         ForfeitPolicy forfeitPolicy,
+        address beneficiary,
         string calldata metadata
-    ) external returns (uint256 eventId) {
+    ) external payable returns (uint256 eventId) {
         if (deposit == 0) revert InvalidDeposit();
+        if ((forfeitPolicy == ForfeitPolicy.Beneficiary) != (beneficiary != address(0))) revert InvalidBeneficiary();
+        if (msg.value > type(uint96).max) revert InvalidBond();
         if (
             startsAt <= block.timestamp || startsAt > block.timestamp + MAX_LEAD_TIME || cancelCutoff > startsAt
                 || checkInEndsAt <= startsAt || checkInEndsAt - startsAt > MAX_CHECK_IN_WINDOW
@@ -169,10 +195,13 @@ contract ShwUp is ReentrancyGuard {
         e.checkInEndsAt = checkInEndsAt;
         e.capacity = capacity;
         e.forfeitPolicy = forfeitPolicy;
+        e.beneficiary = beneficiary;
+        // forge-lint: disable-next-line(unsafe-typecast)
+        e.bond = uint96(msg.value); // bounded above
         e.metadata = metadata;
         _organizerEvents[msg.sender].push(eventId);
 
-        emit EventCreated(eventId, msg.sender, deposit, startsAt, cancelCutoff, checkInEndsAt, capacity, forfeitPolicy);
+        _emitCreated(eventId, e);
     }
 
     /// @notice Authorize (or revoke) an address to check attendees in, e.g. a door-scanner key.
@@ -191,14 +220,24 @@ contract ShwUp is ReentrancyGuard {
         emit CheckerUpdated(eventId, checker, allowed, msg.value);
     }
 
-    /// @notice Cancel an event before it starts. Every held deposit becomes claimable via `claim`.
-    function cancelEvent(uint256 eventId) external onlyOrganizer(eventId) {
+    /// @notice Cancel an event before it starts. Every held deposit becomes claimable via `claim`,
+    ///         together with an equal share of the organizer's bond.
+    function cancelEvent(uint256 eventId) external onlyOrganizer(eventId) nonReentrant {
         EventInfo storage e = _events[eventId];
         if (e.cancelled) revert EventIsCancelled();
         if (block.timestamp >= e.startsAt) revert EventAlreadyStarted();
         if (e.checkedIn > 0) revert AttendeesAlreadyCheckedIn();
         e.cancelled = true;
+        uint96 dust = e.bond;
+        if (e.held > 0) {
+            e.bondPerGuest = e.bond / e.held;
+            dust = e.bond - e.bondPerGuest * e.held;
+        }
         emit EventCancelled(eventId);
+        if (dust > 0) {
+            _pay(e.organizer, dust);
+            emit BondReturned(eventId, e.organizer, dust);
+        }
     }
 
     /// @notice Edit an event's details (name, location, description) until check-in closes.
@@ -233,6 +272,41 @@ contract ShwUp is ReentrancyGuard {
         _rsvp(eventId);
     }
 
+    /// @notice Put your held spot up for someone else to take. Whoever takes it pays you the deposit,
+    ///         so you get your money back even after the cancellation cutoff.
+    /// @param to The only address allowed to take it, or address(0) for anyone.
+    function offerSpot(uint256 eventId, address to) external {
+        EventInfo storage e = _existing(eventId);
+        if (e.cancelled) revert EventIsCancelled();
+        if (block.timestamp >= e.checkInEndsAt) revert EventClosed();
+        if (to == msg.sender) revert CannotTakeOwnSpot();
+        Ticket storage t = _tickets[eventId][msg.sender];
+        if (t.status != TicketStatus.Held) revert NoSpotHeld();
+        t.offered = true;
+        t.offeredTo = to;
+        emit SpotOffered(eventId, msg.sender, to);
+    }
+
+    /// @notice Take back an offer made with `offerSpot`.
+    function withdrawOffer(uint256 eventId) external {
+        Ticket storage t = _tickets[eventId][msg.sender];
+        if (!t.offered) revert NotOffered();
+        t.offered = false;
+        t.offeredTo = address(0);
+        emit OfferWithdrawn(eventId, msg.sender);
+    }
+
+    /// @notice Take a spot someone offered, paying exactly the deposit, which goes to them.
+    function takeSpot(uint256 eventId, address from) external payable nonReentrant {
+        _takeSpot(eventId, from);
+    }
+
+    /// @notice Take an offered spot and set your public display name in one transaction.
+    function takeSpotAs(uint256 eventId, address from, string calldata name) external payable nonReentrant {
+        _setName(name);
+        _takeSpot(eventId, from);
+    }
+
     /// @notice Give up a held spot before the cancellation cutoff for a full refund.
     function cancelRsvp(uint256 eventId) external nonReentrant {
         EventInfo storage e = _existing(eventId);
@@ -242,6 +316,7 @@ contract ShwUp is ReentrancyGuard {
         if (t.status != TicketStatus.Held) revert NoSpotHeld();
 
         t.status = TicketStatus.Released;
+        _clearOffer(t);
         e.held -= 1;
         _pay(msg.sender, e.deposit);
 
@@ -259,6 +334,7 @@ contract ShwUp is ReentrancyGuard {
         if (t.status != TicketStatus.Held) revert NoSpotHeld();
 
         t.status = TicketStatus.CheckedIn;
+        _clearOffer(t);
         e.checkedIn += 1;
         _pay(attendee, e.deposit);
 
@@ -274,7 +350,8 @@ contract ShwUp is ReentrancyGuard {
         _settle(eventId, e);
     }
 
-    /// @notice Claim what you're owed for an event: your deposit if the event was cancelled, or your
+    /// @notice Claim what you're owed for an event: your deposit plus a share of the organizer's bond
+    ///         if the event was cancelled, or your
     ///         share of forfeited deposits once check-in has closed (settling the event if needed).
     function claim(uint256 eventId) external nonReentrant {
         EventInfo storage e = _existing(eventId);
@@ -283,9 +360,10 @@ contract ShwUp is ReentrancyGuard {
         if (e.cancelled) {
             if (t.status != TicketStatus.Held) revert NothingToClaim();
             t.status = TicketStatus.Released;
+            _clearOffer(t);
             e.held -= 1;
-            _pay(msg.sender, e.deposit);
-            emit SpotReleased(eventId, msg.sender, e.deposit);
+            _pay(msg.sender, uint256(e.deposit) + e.bondPerGuest);
+            emit SpotReleased(eventId, msg.sender, e.deposit + e.bondPerGuest);
             return;
         }
 
@@ -324,7 +402,7 @@ contract ShwUp is ReentrancyGuard {
     function claimable(uint256 eventId, address attendee) external view returns (uint256) {
         EventInfo storage e = _events[eventId];
         Ticket storage t = _tickets[eventId][attendee];
-        if (e.cancelled) return t.status == TicketStatus.Held ? e.deposit : 0;
+        if (e.cancelled) return t.status == TicketStatus.Held ? uint256(e.deposit) + e.bondPerGuest : 0;
         if (t.status != TicketStatus.CheckedIn || t.bonusClaimed) return 0;
         if (e.settled) return e.bonusPerAttendee;
         // Closed but not yet settled: what `claim` would settle and pay.
@@ -356,6 +434,32 @@ contract ShwUp is ReentrancyGuard {
         }
     }
 
+    /// @notice Spots on offer within a page of the attendee list (see `getAttendees`).
+    /// @return holders Holders offering their spot. @return offeredTo Who may take each (0 = anyone).
+    function getOffers(uint256 eventId, uint256 offset, uint256 limit)
+        external
+        view
+        returns (address[] memory holders, address[] memory offeredTo)
+    {
+        address[] storage all = _attendees[eventId];
+        uint256 end = offset + limit > all.length ? all.length : offset + limit;
+        uint256 n;
+        for (uint256 i = offset; i < end; ++i) {
+            Ticket storage t = _tickets[eventId][all[i]];
+            if (t.offered && t.status == TicketStatus.Held) ++n;
+        }
+        holders = new address[](n);
+        offeredTo = new address[](n);
+        uint256 k;
+        for (uint256 i = offset; i < end; ++i) {
+            Ticket storage t = _tickets[eventId][all[i]];
+            if (t.offered && t.status == TicketStatus.Held) {
+                holders[k] = all[i];
+                offeredTo[k++] = t.offeredTo;
+            }
+        }
+    }
+
     function eventsOrganizedBy(address organizer) external view returns (uint256[] memory) {
         return _organizerEvents[organizer];
     }
@@ -381,16 +485,55 @@ contract ShwUp is ReentrancyGuard {
         if (msg.value != e.deposit) revert WrongDepositAmount();
         if (e.capacity != 0 && e.held >= e.capacity) revert EventFull();
 
-        Ticket storage t = _tickets[eventId][msg.sender];
-        if (t.status == TicketStatus.Held || t.status == TicketStatus.CheckedIn) revert AlreadyHolding();
-        if (t.status == TicketStatus.None) {
-            _attendees[eventId].push(msg.sender);
-            _attendeeEvents[msg.sender].push(eventId);
-        }
-        t.status = TicketStatus.Held;
+        _hold(eventId, msg.sender);
         e.held += 1;
 
         emit SpotHeld(eventId, msg.sender, e.deposit);
+    }
+
+    /// @dev Separate from `createEvent` to keep its stack shallow.
+    function _emitCreated(uint256 eventId, EventInfo storage e) private {
+        emit EventCreated(
+            eventId, e.organizer, e.deposit, e.startsAt, e.cancelCutoff, e.checkInEndsAt, e.capacity, e.forfeitPolicy
+        );
+        if (e.bond > 0) emit BondPosted(eventId, e.bond);
+    }
+
+    function _takeSpot(uint256 eventId, address from) private {
+        EventInfo storage e = _existing(eventId);
+        if (e.cancelled) revert EventIsCancelled();
+        if (block.timestamp >= e.checkInEndsAt) revert EventClosed();
+        if (msg.value != e.deposit) revert WrongDepositAmount();
+        if (from == msg.sender) revert CannotTakeOwnSpot();
+        Ticket storage given = _tickets[eventId][from];
+        if (given.status != TicketStatus.Held || !given.offered) revert NotOffered();
+        if (given.offeredTo != address(0) && given.offeredTo != msg.sender) revert NotOffered();
+
+        given.status = TicketStatus.Transferred;
+        _clearOffer(given);
+        _hold(eventId, msg.sender); // held count is unchanged: one spot changes hands
+        _pay(from, e.deposit);
+
+        emit SpotTransferred(eventId, from, msg.sender, e.deposit);
+        emit SpotHeld(eventId, msg.sender, e.deposit);
+    }
+
+    /// @dev Marks `who`'s ticket Held, registering them on first contact with the event.
+    function _hold(uint256 eventId, address who) private {
+        Ticket storage t = _tickets[eventId][who];
+        if (t.status == TicketStatus.Held || t.status == TicketStatus.CheckedIn) revert AlreadyHolding();
+        if (t.status == TicketStatus.None) {
+            _attendees[eventId].push(who);
+            _attendeeEvents[who].push(eventId);
+        }
+        t.status = TicketStatus.Held;
+    }
+
+    function _clearOffer(Ticket storage t) private {
+        if (t.offered) {
+            t.offered = false;
+            t.offeredTo = address(0);
+        }
     }
 
     function _settle(uint256 eventId, EventInfo storage e) private {
@@ -406,10 +549,18 @@ contract ShwUp is ReentrancyGuard {
             bonus = uint128(forfeited / e.checkedIn);
             toOrganizer = forfeited - uint256(bonus) * e.checkedIn; // rounding dust
             e.bonusPerAttendee = bonus;
+        } else if (e.forfeitPolicy == ForfeitPolicy.Beneficiary && forfeited > 0) {
+            toOrganizer = 0;
+            _pay(e.beneficiary, forfeited);
         }
         if (toOrganizer > 0) _pay(e.organizer, toOrganizer);
 
         emit EventSettled(eventId, noShows, forfeited, bonus, toOrganizer);
+
+        if (e.bond > 0) {
+            _pay(e.organizer, e.bond);
+            emit BondReturned(eventId, e.organizer, e.bond);
+        }
     }
 
     function _setName(string calldata name) private {

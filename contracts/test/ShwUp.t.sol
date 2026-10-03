@@ -50,7 +50,9 @@ contract ShwUpTest is Test {
 
     function _create(ShwUp.ForfeitPolicy policy, uint32 capacity) internal returns (uint256) {
         vm.prank(organizer);
-        return shwup.createEvent(DEPOSIT, capacity, startsAt, cancelCutoff, checkInEndsAt, policy, '{"name":"Meetup"}');
+        return shwup.createEvent(
+            DEPOSIT, capacity, startsAt, cancelCutoff, checkInEndsAt, policy, address(0), '{"name":"Meetup"}'
+        );
     }
 
     function _create() internal returns (uint256) {
@@ -86,7 +88,7 @@ contract ShwUpTest is Test {
 
     function test_createEvent_revertsOnZeroDeposit() public {
         vm.expectRevert(ShwUp.InvalidDeposit.selector);
-        shwup.createEvent(0, 0, startsAt, cancelCutoff, checkInEndsAt, ShwUp.ForfeitPolicy.Attendees, "");
+        shwup.createEvent(0, 0, startsAt, cancelCutoff, checkInEndsAt, ShwUp.ForfeitPolicy.Attendees, address(0), "");
     }
 
     function test_createEvent_revertsOnBadSchedule() public {
@@ -94,25 +96,27 @@ contract ShwUpTest is Test {
         ShwUp.ForfeitPolicy p = ShwUp.ForfeitPolicy.Attendees;
 
         vm.expectRevert(ShwUp.InvalidSchedule.selector); // starts in the past
-        shwup.createEvent(DEPOSIT, 0, nowTs, nowTs, nowTs + 1, p, "");
+        shwup.createEvent(DEPOSIT, 0, nowTs, nowTs, nowTs + 1, p, address(0), "");
 
         vm.expectRevert(ShwUp.InvalidSchedule.selector); // cutoff after start
-        shwup.createEvent(DEPOSIT, 0, startsAt, startsAt + 1, checkInEndsAt, p, "");
+        shwup.createEvent(DEPOSIT, 0, startsAt, startsAt + 1, checkInEndsAt, p, address(0), "");
 
         vm.expectRevert(ShwUp.InvalidSchedule.selector); // check-in ends before start
-        shwup.createEvent(DEPOSIT, 0, startsAt, cancelCutoff, startsAt, p, "");
+        shwup.createEvent(DEPOSIT, 0, startsAt, cancelCutoff, startsAt, p, address(0), "");
 
         vm.expectRevert(ShwUp.InvalidSchedule.selector); // check-in window too long
-        shwup.createEvent(DEPOSIT, 0, startsAt, cancelCutoff, startsAt + 3 days, p, "");
+        shwup.createEvent(DEPOSIT, 0, startsAt, cancelCutoff, startsAt + 3 days, p, address(0), "");
 
         vm.expectRevert(ShwUp.InvalidSchedule.selector); // too far ahead
-        shwup.createEvent(DEPOSIT, 0, nowTs + 400 days, nowTs, nowTs + 400 days + 1, p, "");
+        shwup.createEvent(DEPOSIT, 0, nowTs + 400 days, nowTs, nowTs + 400 days + 1, p, address(0), "");
     }
 
     function test_createEvent_revertsOnOversizedMetadata() public {
         string memory big = string(new bytes(2049));
         vm.expectRevert(ShwUp.MetadataTooLarge.selector);
-        shwup.createEvent(DEPOSIT, 0, startsAt, cancelCutoff, checkInEndsAt, ShwUp.ForfeitPolicy.Attendees, big);
+        shwup.createEvent(
+            DEPOSIT, 0, startsAt, cancelCutoff, checkInEndsAt, ShwUp.ForfeitPolicy.Attendees, address(0), big
+        );
     }
 
     // ───────────────────────────── rsvp
@@ -663,8 +667,9 @@ contract ShwUpTest is Test {
         deposit = uint96(bound(deposit, 1, 1_000 ether));
 
         vm.prank(organizer);
-        uint256 id =
-            shwup.createEvent(deposit, 0, startsAt, cancelCutoff, checkInEndsAt, ShwUp.ForfeitPolicy.Attendees, "");
+        uint256 id = shwup.createEvent(
+            deposit, 0, startsAt, cancelCutoff, checkInEndsAt, ShwUp.ForfeitPolicy.Attendees, address(0), ""
+        );
         address[] memory people = new address[](rsvps);
         for (uint256 i; i < rsvps; ++i) {
             people[i] = address(uint160(0x1000 + i));
@@ -685,5 +690,229 @@ contract ShwUpTest is Test {
             }
         }
         assertEq(address(shwup).balance, 0, "all funds distributed");
+    }
+
+    // ───────────────────────────── v3: hand a spot over
+
+    function _offer(uint256 id, address holder, address to) internal {
+        vm.prank(holder);
+        shwup.offerSpot(id, to);
+    }
+
+    function test_takeSpot_paysLeaverAndMovesTicket() public {
+        uint256 id = _create(ShwUp.ForfeitPolicy.Attendees, 1);
+        _rsvp(id, alice);
+        _offer(id, alice, address(0));
+        uint256 aliceBefore = alice.balance;
+
+        vm.prank(bob);
+        shwup.takeSpotAs{value: DEPOSIT}(id, alice, "Bob");
+
+        assertEq(alice.balance, aliceBefore + DEPOSIT);
+        assertEq(uint8(_status(id, alice)), uint8(ShwUp.TicketStatus.Transferred));
+        assertEq(uint8(_status(id, bob)), uint8(ShwUp.TicketStatus.Held));
+        assertEq(shwup.getEvent(id).held, 1);
+        assertEq(shwup.nameOf(bob), "Bob");
+        assertEq(address(shwup).balance, DEPOSIT);
+    }
+
+    function test_takeSpot_worksAfterCancelCutoffAndWhenFull() public {
+        uint256 id = _create(ShwUp.ForfeitPolicy.Attendees, 1);
+        _rsvp(id, alice);
+        vm.warp(cancelCutoff + 1);
+        vm.prank(alice);
+        vm.expectRevert(ShwUp.CancellationClosed.selector);
+        shwup.cancelRsvp(id);
+
+        _offer(id, alice, address(0));
+        vm.prank(bob);
+        shwup.takeSpot{value: DEPOSIT}(id, alice);
+        vm.warp(startsAt);
+        _checkIn(id, bob);
+        assertEq(uint8(_status(id, bob)), uint8(ShwUp.TicketStatus.CheckedIn));
+    }
+
+    function test_takeSpot_respectsNamedRecipient() public {
+        uint256 id = _create();
+        _rsvp(id, alice);
+        _offer(id, alice, carol);
+        vm.prank(bob);
+        vm.expectRevert(ShwUp.NotOffered.selector);
+        shwup.takeSpot{value: DEPOSIT}(id, alice);
+        vm.prank(carol);
+        shwup.takeSpot{value: DEPOSIT}(id, alice);
+        assertEq(uint8(_status(id, carol)), uint8(ShwUp.TicketStatus.Held));
+    }
+
+    function test_takeSpot_requiresOfferAndExactDeposit() public {
+        uint256 id = _create();
+        _rsvp(id, alice);
+        vm.prank(bob);
+        vm.expectRevert(ShwUp.NotOffered.selector);
+        shwup.takeSpot{value: DEPOSIT}(id, alice);
+
+        _offer(id, alice, address(0));
+        vm.prank(bob);
+        vm.expectRevert(ShwUp.WrongDepositAmount.selector);
+        shwup.takeSpot{value: DEPOSIT * 2}(id, alice);
+
+        vm.prank(alice);
+        vm.expectRevert(ShwUp.CannotTakeOwnSpot.selector);
+        shwup.takeSpot{value: DEPOSIT}(id, alice);
+    }
+
+    function test_takeSpot_rejectsTakerAlreadyHolding() public {
+        uint256 id = _create();
+        _rsvp(id, alice);
+        _rsvp(id, bob);
+        _offer(id, alice, address(0));
+        vm.prank(bob);
+        vm.expectRevert(ShwUp.AlreadyHolding.selector);
+        shwup.takeSpot{value: DEPOSIT}(id, alice);
+    }
+
+    function test_withdrawOffer_stopsTakers() public {
+        uint256 id = _create();
+        _rsvp(id, alice);
+        _offer(id, alice, address(0));
+        vm.prank(alice);
+        shwup.withdrawOffer(id);
+        vm.prank(bob);
+        vm.expectRevert(ShwUp.NotOffered.selector);
+        shwup.takeSpot{value: DEPOSIT}(id, alice);
+    }
+
+    function test_offer_clearedByCheckInAndCancel() public {
+        uint256 id = _create();
+        _rsvp(id, alice);
+        _rsvp(id, bob);
+        _offer(id, alice, address(0));
+        _offer(id, bob, address(0));
+        (address[] memory holders,) = shwup.getOffers(id, 0, 10);
+        assertEq(holders.length, 2);
+
+        vm.prank(bob);
+        shwup.cancelRsvp(id);
+        vm.warp(startsAt);
+        _checkIn(id, alice);
+        (holders,) = shwup.getOffers(id, 0, 10);
+        assertEq(holders.length, 0);
+        assertFalse(shwup.ticketOf(id, alice).offered);
+    }
+
+    function test_offerSpot_closedAfterCheckIn() public {
+        uint256 id = _create();
+        _rsvp(id, alice);
+        vm.warp(checkInEndsAt);
+        vm.prank(alice);
+        vm.expectRevert(ShwUp.EventClosed.selector);
+        shwup.offerSpot(id, address(0));
+    }
+
+    function test_transferredGuestCanRsvpAgain() public {
+        uint256 id = _create();
+        _rsvp(id, alice);
+        _offer(id, alice, address(0));
+        vm.prank(bob);
+        shwup.takeSpot{value: DEPOSIT}(id, alice);
+        _rsvp(id, alice);
+        assertEq(shwup.attendeeCount(id), 2);
+        assertEq(shwup.getEvent(id).held, 2);
+    }
+
+    // ───────────────────────────── v3: forfeit beneficiary
+
+    function test_beneficiary_receivesForfeits() public {
+        address fund = makeAddr("fund");
+        vm.prank(organizer);
+        uint256 id = shwup.createEvent(
+            DEPOSIT, 0, startsAt, cancelCutoff, checkInEndsAt, ShwUp.ForfeitPolicy.Beneficiary, fund, ""
+        );
+        _rsvp(id, alice);
+        _rsvp(id, bob);
+        vm.warp(startsAt);
+        _checkIn(id, alice);
+        uint256 orgBefore = organizer.balance;
+        vm.warp(checkInEndsAt);
+        shwup.settle(id);
+        assertEq(fund.balance, DEPOSIT);
+        assertEq(organizer.balance, orgBefore);
+        assertEq(shwup.getEvent(id).bonusPerAttendee, 0);
+        assertEq(address(shwup).balance, 0);
+    }
+
+    function test_beneficiary_mustMatchPolicy() public {
+        vm.startPrank(organizer);
+        vm.expectRevert(ShwUp.InvalidBeneficiary.selector);
+        shwup.createEvent(
+            DEPOSIT, 0, startsAt, cancelCutoff, checkInEndsAt, ShwUp.ForfeitPolicy.Beneficiary, address(0), ""
+        );
+        vm.expectRevert(ShwUp.InvalidBeneficiary.selector);
+        shwup.createEvent(DEPOSIT, 0, startsAt, cancelCutoff, checkInEndsAt, ShwUp.ForfeitPolicy.Organizer, bob, "");
+        vm.stopPrank();
+    }
+
+    // ───────────────────────────── v3: organizer bond
+
+    function _createBonded(uint256 bond) internal returns (uint256) {
+        vm.prank(organizer);
+        return shwup.createEvent{value: bond}(
+            DEPOSIT, 0, startsAt, cancelCutoff, checkInEndsAt, ShwUp.ForfeitPolicy.Attendees, address(0), ""
+        );
+    }
+
+    function test_bond_returnedAtSettlement() public {
+        uint256 id = _createBonded(20 ether);
+        assertEq(shwup.getEvent(id).bond, 20 ether);
+        _rsvp(id, alice);
+        vm.warp(startsAt);
+        _checkIn(id, alice);
+        uint256 orgBefore = organizer.balance;
+        vm.warp(checkInEndsAt);
+        shwup.settle(id);
+        assertEq(organizer.balance, orgBefore + 20 ether);
+        assertEq(address(shwup).balance, 0);
+    }
+
+    function test_bond_splitAmongGuestsOnCancel() public {
+        uint256 id = _createBonded(10 ether);
+        _rsvp(id, alice);
+        _rsvp(id, bob);
+        _rsvp(id, carol);
+        uint256 orgBefore = organizer.balance;
+        vm.prank(organizer);
+        shwup.cancelEvent(id);
+
+        uint96 perGuest = uint96(10 ether) / 3;
+        assertEq(shwup.getEvent(id).bondPerGuest, perGuest);
+        assertEq(organizer.balance, orgBefore + (10 ether - uint256(perGuest) * 3)); // dust
+        assertEq(shwup.claimable(id, alice), DEPOSIT + perGuest);
+
+        uint256 aliceBefore = alice.balance;
+        vm.prank(alice);
+        shwup.claim(id);
+        assertEq(alice.balance, aliceBefore + DEPOSIT + perGuest);
+        vm.prank(bob);
+        shwup.claim(id);
+        vm.prank(carol);
+        shwup.claim(id);
+        assertEq(address(shwup).balance, 0);
+    }
+
+    function test_bond_returnedOnCancelWithNoGuests() public {
+        uint256 id = _createBonded(10 ether);
+        uint256 orgBefore = organizer.balance;
+        vm.prank(organizer);
+        shwup.cancelEvent(id);
+        assertEq(organizer.balance, orgBefore + 10 ether);
+        assertEq(address(shwup).balance, 0);
+    }
+
+    function test_bond_returnedWhenNobodyRsvped() public {
+        uint256 id = _createBonded(10 ether);
+        vm.warp(checkInEndsAt);
+        uint256 orgBefore = organizer.balance;
+        shwup.settle(id);
+        assertEq(organizer.balance, orgBefore + 10 ether);
     }
 }
