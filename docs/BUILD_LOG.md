@@ -12,6 +12,6 @@
 | 2026-10-03 | Door mode with door keys funded in USDC in the same transaction (#5) |
 | 2026-10-03 | Home for returning users; landing page with live demo (#6) |
 | 2026-10-03 | Full lifecycle pass incl. time-travelled settlement and bonus claim; error/accessibility polish (#7) |
-| — | Arc testnet deployment |
-| — | Production web deployment |
+| 2026-10-03 | Arc testnet deployment, source verified on Blockscout (#9) |
+| 2026-10-03 | Production web deployment: https://shwup.vercel.app |
 | — | Arc mainnet deployment + first real event |

@@ -4,7 +4,7 @@
 they're scanned in at the door. People who never show forfeit theirs — split among the people who
 came, or paid to the organizer.
 
-<!-- Live app: set after deployment -->
+**Live (Arc testnet):** https://shwup.vercel.app · **Contract:** [verified on the Arc explorer](https://explorer.testnet.arc.io/address/0xD1d6EE0c5309A09Df9ca4c2936956A49cca9eb71?tab=contract)
 
 ---
 
@@ -166,7 +166,14 @@ cast wallet import shwup-deployer --interactive
 The script deploys, verifies the source on Arc's Blockscout explorer, records the address in
 `contracts/deployments/<chainId>.json`, and prints the three `NEXT_PUBLIC_SHWUP_*` values for the web app.
 
-**Web**: deploy `web/` to Vercel (root directory `web`, framework Next.js) with those variables set.
+**Web** (Vercel, root directory `web`, Node 22): set the three variables with `vercel env add`, then
+build locally against the pinned lockfile and ship the output:
+
+```bash
+vercel link --project shwup          # at the repo root; project root directory: web
+vercel pull --environment=production
+vercel build --prod && vercel deploy --prebuilt --prod
+```
 
 ## Deployments
 
