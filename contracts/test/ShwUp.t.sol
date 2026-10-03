@@ -365,13 +365,17 @@ contract ShwUpTest is Test {
     function test_settle_sendsRoundingDustToOrganizer() public {
         uint256 id = _create(ShwUp.ForfeitPolicy.Attendees, 0);
         address[3] memory came = [alice, bob, carol];
-        for (uint256 i; i < 3; ++i) _rsvp(id, came[i]);
+        for (uint256 i; i < 3; ++i) {
+            _rsvp(id, came[i]);
+        }
         address noShow = makeAddr("noShow");
         vm.deal(noShow, DEPOSIT);
         _rsvp(id, noShow);
 
         vm.warp(startsAt);
-        for (uint256 i; i < 3; ++i) _checkIn(id, came[i]);
+        for (uint256 i; i < 3; ++i) {
+            _checkIn(id, came[i]);
+        }
         vm.warp(checkInEndsAt);
         uint256 before = organizer.balance;
         shwup.settle(id);
@@ -533,9 +537,8 @@ contract ShwUpTest is Test {
         deposit = uint96(bound(deposit, 1, 1_000 ether));
 
         vm.prank(organizer);
-        uint256 id = shwup.createEvent(
-            deposit, 0, startsAt, cancelCutoff, checkInEndsAt, ShwUp.ForfeitPolicy.Attendees, ""
-        );
+        uint256 id =
+            shwup.createEvent(deposit, 0, startsAt, cancelCutoff, checkInEndsAt, ShwUp.ForfeitPolicy.Attendees, "");
         address[] memory people = new address[](rsvps);
         for (uint256 i; i < rsvps; ++i) {
             people[i] = address(uint160(0x1000 + i));
@@ -544,7 +547,9 @@ contract ShwUpTest is Test {
             shwup.rsvp{value: deposit}(id);
         }
         vm.warp(startsAt);
-        for (uint256 i; i < arrivals; ++i) _checkIn(id, people[i]);
+        for (uint256 i; i < arrivals; ++i) {
+            _checkIn(id, people[i]);
+        }
         vm.warp(checkInEndsAt);
         shwup.settle(id);
         for (uint256 i; i < arrivals; ++i) {

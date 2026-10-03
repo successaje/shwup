@@ -26,3 +26,4 @@ contracts/broadcast/**/dry-run/
 .DS_Store
 *.log
 coverage/
+contracts/deployments/31337.json
