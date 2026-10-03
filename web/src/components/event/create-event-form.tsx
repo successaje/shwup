@@ -15,6 +15,7 @@ import {
   buildCreateEvent,
   CANCEL_OPTIONS,
   defaultForm,
+  defaultsFromForm,
   DEPOSIT_PRESETS,
   DOORS_OPTIONS,
   type CancelOption,
@@ -27,11 +28,12 @@ import { shwupContract } from "@/hooks/use-shwup";
 import { useStagedWrite } from "@/hooks/use-staged-write";
 import { shwupAbi } from "@/lib/contracts/shwup-abi";
 import { formatUsd, parseUsd } from "@/lib/money";
+import { saveOrganizerDefaults } from "@/lib/organizer-prefs";
 
-export function CreateEventForm() {
+export function CreateEventForm({ initial }: { initial?: Form }) {
   const router = useRouter();
   const { address } = useConnection();
-  const [form, setForm] = useState<Form>(() => defaultForm());
+  const [form, setForm] = useState<Form>(() => initial ?? defaultForm());
   const [errors, setErrors] = useState<FormErrors>({});
   const [moreOpen, setMoreOpen] = useState(false);
   const [connectOpen, setConnectOpen] = useState(false);
@@ -60,6 +62,7 @@ export function CreateEventForm() {
     const result = await tx.run({ ...shwupContract, functionName: "createEvent", args: built.args });
     if (!result.ok) return;
     const [created] = parseEventLogs({ abi: shwupAbi, eventName: "EventCreated", logs: result.receipt.logs });
+    saveOrganizerDefaults(defaultsFromForm(form));
     if (created) router.push(`/app/events/${created.args.eventId}?created=1`);
   };
 

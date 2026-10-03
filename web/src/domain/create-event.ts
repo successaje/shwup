@@ -1,4 +1,5 @@
-import { encodeDetails, ForfeitPolicy, LIMITS } from "@/domain/event";
+import { formatUnits } from "viem";
+import { encodeDetails, ForfeitPolicy, LIMITS, type ShwUpEvent } from "@/domain/event";
 import { parseUsd } from "@/lib/money";
 import { toSeconds } from "@/lib/time";
 
@@ -123,5 +124,57 @@ export function buildCreateEvent(
     cutoff,
     doorsClose,
     args: [deposit, capacity, toSeconds(start), toSeconds(cutoff), toSeconds(doorsClose), form.forfeit, metadata] as const,
+  };
+}
+
+const pad2 = (n: number) => String(n).padStart(2, "0");
+const toLocalInputValue = (d: Date) =>
+  `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+
+/** Snap a gap in hours to the closest offered option. */
+function closest<T extends string>(hours: number, options: readonly { value: T }[], numeric: (v: T) => number): T {
+  return options.reduce((best, o) => (Math.abs(numeric(o.value) - hours) < Math.abs(numeric(best.value) - hours) ? o : best)).value;
+}
+
+/** Settings an organizer reuses from event to event. */
+export type OrganizerDefaults = Pick<CreateEventForm, "location" | "deposit" | "capacity" | "cancel" | "doors" | "forfeit">;
+
+export function defaultsFromForm(form: CreateEventForm): OrganizerDefaults {
+  return { location: form.location.trim(), deposit: form.deposit, capacity: form.capacity, cancel: form.cancel, doors: form.doors, forfeit: form.forfeit };
+}
+
+/** A new form that starts from what this organizer did last time. */
+export function formWithDefaults(defaults: Partial<OrganizerDefaults> | null, now = new Date()): CreateEventForm {
+  return { ...defaultForm(now), ...(defaults ?? {}) };
+}
+
+/**
+ * "Run it again": same details and terms, same weekday and time, the first weekly slot that's still
+ * in the future.
+ */
+export function formFromEvent(
+  e: Pick<ShwUpEvent, "details" | "deposit" | "capacity" | "startsAt" | "cancelCutoff" | "checkInEndsAt" | "forfeitPolicy">,
+  now = new Date(),
+): CreateEventForm {
+  const week = 7 * 24 * HOUR;
+  let start = e.startsAt.getTime() + week;
+  while (start < now.getTime() + 10 * 60_000) start += week;
+
+  const cutoffHours = (e.startsAt.getTime() - e.cancelCutoff.getTime()) / HOUR;
+  // "No cancellations" is stored as a cutoff at creation time, indistinguishable from a long lead;
+  // snapping to the nearest offered window is the honest best guess.
+  const cancel = closest(cutoffHours, CANCEL_OPTIONS.filter((o) => o.value !== "none"), (v) => Number(v));
+  const doors = closest((e.checkInEndsAt.getTime() - e.startsAt.getTime()) / HOUR, DOORS_OPTIONS, (v) => Number(v));
+
+  return {
+    name: e.details.name,
+    location: e.details.location,
+    description: e.details.description ?? "",
+    startsAt: toLocalInputValue(new Date(start)),
+    deposit: formatUnits(e.deposit, 18).replace(/\.0$/, ""),
+    capacity: e.capacity ? String(e.capacity) : "",
+    cancel,
+    doors,
+    forfeit: e.forfeitPolicy,
   };
 }
