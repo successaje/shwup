@@ -79,3 +79,19 @@ export function useMyEvents(owner: Address | undefined) {
     attending: attending.map((id) => byId.get(id)).filter(Boolean) as ShwUpEvent[],
   };
 }
+
+export type AttendeeRow = { address: Address; status: TicketStatus };
+
+/** Attendee list for the organizer console and door. First 500; enough for v1 events. */
+export function useAttendees(id: bigint | undefined, { live = false } = {}) {
+  const query = useReadContract({
+    ...contract,
+    functionName: "getAttendees",
+    args: [id ?? 0n, 0n, 500n],
+    query: { enabled: isConfigured && id !== undefined, refetchInterval: live ? 2_000 : 10_000 },
+  });
+  const rows: AttendeeRow[] | undefined = query.data
+    ? query.data[0].map((address, i) => ({ address, status: query.data[1][i] as TicketStatus }))
+    : undefined;
+  return { ...query, rows };
+}

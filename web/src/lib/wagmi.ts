@@ -20,7 +20,7 @@ if (chainKey === "local") {
     ["0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65", "Test account 4 · new"],
   ] as const;
   for (const [address, name] of testAccounts) {
-    const base = mock({ accounts: [address], features: { reconnect: true } });
+    const base = mock({ accounts: [address], features: { reconnect: true, defaultConnected: true } });
     connectors.push((config) => ({ ...base(config), id: `anvil-${address}`, name }));
   }
 }
