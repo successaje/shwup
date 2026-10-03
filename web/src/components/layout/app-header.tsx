@@ -22,7 +22,10 @@ export function AppHeader() {
         )}
         <nav className="ml-4 hidden items-center gap-1 text-sm md:flex">
           <NavLink href="/app" active={path === "/app"}>
-            Home
+            Events
+          </NavLink>
+          <NavLink href="/app/activity" active={path === "/app/activity"}>
+            Activity
           </NavLink>
         </nav>
         <div className="ml-auto flex items-center gap-2">
