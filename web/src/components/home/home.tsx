@@ -2,7 +2,8 @@
 
 import { ChevronRight } from "lucide-react";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
+import { lastSeenHeld } from "@/lib/seen";
 import { PhaseLabel } from "@/components/event/phase-label";
 import { ButtonLink } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -14,6 +15,8 @@ import { useNow } from "@/hooks/use-now";
 import { cn } from "@/lib/cn";
 import { formatUsd } from "@/lib/money";
 import { formatTime, relative } from "@/lib/time";
+
+const noop = () => () => {};
 
 export function Home() {
   const { address, loading } = useWalletReady();
@@ -158,6 +161,8 @@ function GoingRow({ event, view, now }: { event: ShwUpEvent; ticket: TicketView 
 
 function HostingRow({ event, now }: { event: ShwUpEvent; now: Date }) {
   const phase = eventPhase(event, now);
+  const seen = useSyncExternalStore(noop, () => lastSeenHeld(event.id) ?? -1, () => -1);
+  const fresh = seen >= 0 && (phase === "open" || phase === "doors") ? event.held - seen : 0;
   const needsSettle = phase === "closed";
   const meta = `${formatTime(event.startsAt)} · ${event.capacity ? `${event.held}/${event.capacity}` : event.held} held${phase === "doors" || phase === "closed" || phase === "settled" ? ` · ${event.checkedIn} came` : ""}`;
   return (
@@ -165,7 +170,18 @@ function HostingRow({ event, now }: { event: ShwUpEvent; now: Date }) {
       href={`/app/events/${event.id}`}
       event={event}
       meta={meta}
-      status={needsSettle ? <span className="font-medium text-warn">Settle no-shows</span> : <PhaseLabel phase={phase} />}
+      status={
+        needsSettle ? (
+          <span className="font-medium text-warn">Settle no-shows</span>
+        ) : fresh > 0 ? (
+          <span className="font-medium text-ink">
+            <span className="mr-1.5 inline-block size-1.5 rounded-full bg-stamp align-middle" aria-hidden />
+            {fresh} new {fresh === 1 ? "RSVP" : "RSVPs"}
+          </span>
+        ) : (
+          <PhaseLabel phase={phase} />
+        )
+      }
       dim={phase === "settled" || phase === "cancelled"}
     />
   );
