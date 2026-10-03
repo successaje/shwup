@@ -529,6 +529,132 @@ contract ShwUpTest is Test {
         assertEq(a.length, 0);
     }
 
+    // ───────────────────────────── v2: details, names, auto-settle
+
+    function test_updateDetails_organizerCanEditUntilClose() public {
+        uint256 id = _create();
+        vm.expectEmit(true, false, false, false);
+        emit ShwUp.EventUpdated(id);
+        vm.prank(organizer);
+        shwup.updateDetails(id, '{"name":"Meetup v2"}');
+        assertEq(shwup.getEvent(id).metadata, '{"name":"Meetup v2"}');
+
+        vm.warp(startsAt + 1 hours); // still allowed during the event
+        vm.prank(organizer);
+        shwup.updateDetails(id, '{"name":"Moved upstairs"}');
+
+        vm.warp(checkInEndsAt);
+        vm.prank(organizer);
+        vm.expectRevert(ShwUp.EventClosed.selector);
+        shwup.updateDetails(id, "{}");
+    }
+
+    function test_updateDetails_onlyOrganizer() public {
+        uint256 id = _create();
+        vm.prank(alice);
+        vm.expectRevert(ShwUp.NotOrganizer.selector);
+        shwup.updateDetails(id, "{}");
+    }
+
+    function test_updateDetails_blockedWhenCancelledOrOversized() public {
+        uint256 id = _create();
+        vm.prank(organizer);
+        vm.expectRevert(ShwUp.MetadataTooLarge.selector);
+        shwup.updateDetails(id, string(new bytes(2049)));
+
+        vm.startPrank(organizer);
+        shwup.cancelEvent(id);
+        vm.expectRevert(ShwUp.EventIsCancelled.selector);
+        shwup.updateDetails(id, "{}");
+        vm.stopPrank();
+    }
+
+    function test_setName_setsClearsAndBatches() public {
+        vm.expectEmit(true, false, false, true);
+        emit ShwUp.NameSet(alice, "Alice O.");
+        vm.prank(alice);
+        shwup.setName("Alice O.");
+        vm.prank(bob);
+        shwup.setName("Bob");
+
+        address[] memory who = new address[](3);
+        (who[0], who[1], who[2]) = (alice, bob, carol);
+        string[] memory names = shwup.namesOf(who);
+        assertEq(names[0], "Alice O.");
+        assertEq(names[1], "Bob");
+        assertEq(names[2], "");
+
+        vm.prank(alice);
+        shwup.setName("");
+        assertEq(shwup.nameOf(alice), "");
+    }
+
+    function test_setName_rejectsLongNames() public {
+        vm.prank(alice);
+        vm.expectRevert(ShwUp.NameTooLong.selector);
+        shwup.setName("this name is definitely over 32 bytes");
+    }
+
+    function test_rsvpAs_holdsSpotAndSetsName() public {
+        uint256 id = _create();
+        vm.prank(alice);
+        shwup.rsvpAs{value: DEPOSIT}(id, "Alice");
+        assertEq(shwup.nameOf(alice), "Alice");
+        assertEq(uint8(_status(id, alice)), uint8(ShwUp.TicketStatus.Held));
+    }
+
+    function test_rsvpAs_unchangedNameEmitsNothing() public {
+        vm.prank(alice);
+        shwup.setName("Alice");
+        uint256 id = _create();
+        vm.recordLogs();
+        vm.prank(alice);
+        shwup.rsvpAs{value: DEPOSIT}(id, "Alice");
+        assertEq(vm.getRecordedLogs().length, 1, "only SpotHeld");
+    }
+
+    function test_claim_settlesAutomaticallyAfterClose() public {
+        uint256 id = _create(ShwUp.ForfeitPolicy.Attendees, 0);
+        _rsvp(id, alice);
+        _rsvp(id, bob); // no-show
+        vm.warp(startsAt);
+        _checkIn(id, alice);
+        vm.warp(checkInEndsAt);
+
+        assertEq(shwup.claimable(id, alice), DEPOSIT, "view predicts the auto-settled share");
+        uint256 before = alice.balance;
+        vm.prank(alice);
+        shwup.claim(id); // nobody pressed settle
+        assertTrue(shwup.getEvent(id).settled);
+        assertEq(alice.balance, before + DEPOSIT);
+        assertEq(address(shwup).balance, 0);
+    }
+
+    function test_claim_noShowCannotTriggerSettlement() public {
+        uint256 id = _create(ShwUp.ForfeitPolicy.Attendees, 0);
+        _rsvp(id, alice);
+        vm.warp(checkInEndsAt);
+        vm.prank(alice);
+        vm.expectRevert(ShwUp.NothingToClaim.selector);
+        shwup.claim(id);
+        assertFalse(shwup.getEvent(id).settled, "revert rolls the settlement back");
+    }
+
+    function test_claimable_zeroBeforeCloseAndUnderOrganizerPolicy() public {
+        uint256 a = _create(ShwUp.ForfeitPolicy.Attendees, 0);
+        uint256 b = _create(ShwUp.ForfeitPolicy.Organizer, 0);
+        _rsvp(a, alice);
+        _rsvp(a, bob);
+        _rsvp(b, alice);
+        _rsvp(b, bob);
+        vm.warp(startsAt);
+        _checkIn(a, alice);
+        _checkIn(b, alice);
+        assertEq(shwup.claimable(a, alice), 0, "check-in still open");
+        vm.warp(checkInEndsAt);
+        assertEq(shwup.claimable(b, alice), 0, "organizer keeps forfeits");
+    }
+
     // ───────────────────────────── fuzz
 
     function testFuzz_settlementConservesFunds(uint8 rsvps, uint8 arrivals, uint96 deposit) public {
