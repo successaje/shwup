@@ -1,9 +1,11 @@
 "use client";
 
 import { ArrowUpRight } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useBalance, useConnection } from "wagmi";
+import { AddToCalendar } from "@/components/guest/add-to-calendar";
 import { TxProgress } from "@/components/tx-progress";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -156,6 +158,7 @@ function Holding({ event, view, onChange }: { event: ShwUpEvent; view: Extract<G
           moment you&apos;re scanned in.
         </p>
       )}
+      <AddToCalendar event={event} />
       {view.canCancel && (
         <>
           <button onClick={() => setOpen(true)} className="self-start text-sm text-ink-3 underline-offset-4 hover:text-ink hover:underline">
@@ -214,6 +217,16 @@ function Arrived({ event, bonus, onChange }: { event: ShwUpEvent; bonus: Extract
         </div>
       )}
       {bonus === "claimed" && <p className="text-sm text-ok">You collected {formatUsd(event.bonusPerAttendee)} from no-shows.</p>}
+      <Link
+        href="/app/new"
+        className="mt-2 flex items-center justify-between gap-3 rounded-md border border-line bg-surface px-4 py-3 text-sm transition-colors hover:border-ink-3"
+      >
+        <span>
+          <span className="font-medium">Hosting something?</span>{" "}
+          <span className="text-ink-2">Get RSVPs that show up, like this one.</span>
+        </span>
+        <span aria-hidden>→</span>
+      </Link>
     </div>
   );
 }

@@ -1,9 +1,12 @@
 const dayFmt = new Intl.DateTimeFormat("en-US", { weekday: "short", month: "short", day: "numeric" });
 const timeFmt = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" });
 
-/** "Sat, Oct 11 · 6:30 PM" */
-export function formatWhen(d: Date): string {
-  return `${dayFmt.format(d)} · ${timeFmt.format(d)}`;
+/** "Sat, Oct 11 · 6:30 PM", optionally with the viewer's zone: "Sat, Oct 11 · 6:30 PM WAT". */
+export function formatWhen(d: Date, { zone = false } = {}): string {
+  const base = `${dayFmt.format(d)} · ${timeFmt.format(d)}`;
+  if (!zone) return base;
+  const tz = new Intl.DateTimeFormat("en-US", { timeZoneName: "short" }).formatToParts(d).find((p) => p.type === "timeZoneName")?.value;
+  return tz ? `${base} ${tz}` : base;
 }
 
 export function formatTime(d: Date): string {

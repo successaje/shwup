@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, MapPin } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -10,6 +10,9 @@ import { TicketStub } from "@/components/event/ticket-stub";
 import { ArrivalBanner } from "@/components/guest/arrival-banner";
 import { DoorCheckInBanner } from "@/components/guest/door-check-in-banner";
 import { GuestActions } from "@/components/guest/guest-actions";
+import { WhosGoing } from "@/components/guest/whos-going";
+import { Linkified } from "@/components/linkified";
+import { mapsUrl } from "@/domain/calendar";
 import { LoadError } from "@/components/load-error";
 import { QrCode } from "@/components/qr-code";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -102,7 +105,13 @@ export function GuestPage({ id }: { id: bigint }) {
         />
 
         <div className="mx-auto w-full max-w-sm lg:mx-0">
-          {address && ticketLoading ? <Skeleton className="h-12" /> : <GuestActions event={event} view={view} onChange={refresh} />}
+          {address && ticketLoading ? (
+            <Skeleton className="h-12" />
+          ) : isOrganizer && view.kind === "invite" ? (
+            <p className="text-sm text-ink-2">This is what your guests see. They&apos;ll get a “Hold my spot” button here.</p>
+          ) : (
+            <GuestActions event={event} view={view} onChange={refresh} />
+          )}
         </div>
       </div>
 
@@ -117,15 +126,32 @@ function EventAbout({ event }: { event: ShwUpEvent }) {
     <div className="flex min-w-0 flex-col gap-10">
       {/* On phones the ticket above already shows name, time and place. */}
       <header className="max-lg:sr-only">
-        <p className="text-sm text-ink-3">{formatWhen(event.startsAt)}</p>
+        <p className="text-sm text-ink-3">{formatWhen(event.startsAt, { zone: true })}</p>
         <h1 className="mt-2 font-display text-3xl font-medium tracking-tight text-balance break-words sm:text-4xl">
           {event.details.name}
         </h1>
         {event.details.location && <p className="mt-2 text-ink-2">{event.details.location}</p>}
       </header>
 
+      <div className="flex flex-col gap-4">
+        <WhosGoing event={event} />
+        {event.details.location && (
+          <a
+            href={mapsUrl(event.details.location)}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 self-start text-sm text-ink-2 hover:text-ink"
+          >
+            <MapPin className="size-4 text-ink-3" />
+            <span className="underline decoration-line-strong underline-offset-4">Open {event.details.location} in Maps</span>
+          </a>
+        )}
+      </div>
+
       {event.details.description && (
-        <p className="max-w-prose leading-relaxed whitespace-pre-line text-ink-2">{event.details.description}</p>
+        <p className="max-w-prose leading-relaxed break-words whitespace-pre-line text-ink-2">
+          <Linkified text={event.details.description} />
+        </p>
       )}
 
       <section className="max-w-prose border-t border-line pt-8">
