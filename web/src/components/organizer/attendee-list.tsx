@@ -1,6 +1,6 @@
 "use client";
 
-import { Check } from "lucide-react";
+import { Check, Download } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import type { Address } from "viem";
@@ -11,6 +11,7 @@ import { TicketStatus, type EventPhase, type ShwUpEvent } from "@/domain/event";
 import { shwupContract, useAttendees, useNames } from "@/hooks/use-shwup";
 import { useStagedWrite } from "@/hooks/use-staged-write";
 import { shortAddress } from "@/lib/address";
+import { guestsCsv } from "@/domain/export";
 import { cn } from "@/lib/cn";
 import { formatUsd } from "@/lib/money";
 
@@ -40,6 +41,17 @@ export function AttendeeList({ event, phase, onChange }: { event: ShwUpEvent; ph
     }
   };
 
+  const exportCsv = () => {
+    const csv = guestsCsv(
+      (rows ?? []).map((r) => ({ ...r, name: nameFor(r.address) })),
+      { closed: phase === "closed" || phase === "settled" },
+    );
+    const href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const a = Object.assign(document.createElement("a"), { href, download: `${event.details.name.replace(/[^\w-]+/g, "-").slice(0, 40) || "guests"}-guests.csv` });
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(href), 1000);
+  };
+
   const sorted = rows ? [...rows].sort((a, b) => ORDER[a.status] - ORDER[b.status]) : undefined;
   const active = sorted?.filter((r) => r.status !== TicketStatus.Released) ?? [];
   const released = (sorted?.length ?? 0) - active.length;
@@ -48,7 +60,14 @@ export function AttendeeList({ event, phase, onChange }: { event: ShwUpEvent; ph
     <section>
       <div className="flex items-baseline justify-between">
         <h2 className="font-display text-lg font-medium tracking-tight">Guests</h2>
-        {released > 0 && <p className="text-xs text-ink-3">{released} cancelled</p>}
+        <div className="flex items-center gap-4">
+          {released > 0 && <p className="text-xs text-ink-3">{released} cancelled</p>}
+          {rows && rows.length > 0 && (
+            <button onClick={exportCsv} className="inline-flex items-center gap-1 text-sm text-ink-2 hover:text-ink">
+              <Download className="size-3.5" /> Export CSV
+            </button>
+          )}
+        </div>
       </div>
 
       {isLoading ? (

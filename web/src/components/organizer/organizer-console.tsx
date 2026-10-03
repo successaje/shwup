@@ -1,11 +1,13 @@
 "use client";
 
-import { ArrowLeft, ScanLine } from "lucide-react";
+import { ArrowLeft, Eye, Pencil, Repeat, ScanLine } from "lucide-react";
+import { useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useConnection } from "wagmi";
 import { PhaseLabel } from "@/components/event/phase-label";
 import { AttendeeList } from "@/components/organizer/attendee-list";
+import { EditDetailsDialog } from "@/components/organizer/edit-details-dialog";
 import { CancelEventCard, SettleCard } from "@/components/organizer/lifecycle-cards";
 import { SharePanel } from "@/components/organizer/share-panel";
 import { LoadError } from "@/components/load-error";
@@ -24,6 +26,7 @@ export function OrganizerConsole({ id }: { id: bigint }) {
   const { address, status } = useConnection();
   const { event, isLoading, error, refetch } = useEvent(id, { live: true });
   const justCreated = useSearchParams().get("created") === "1";
+  const [editing, setEditing] = useState(false);
 
   if (isLoading || status === "reconnecting") return <ConsoleSkeleton />;
   if (error || !event) return <LoadError error={error} onRetry={() => refetch()} />;
@@ -72,6 +75,19 @@ export function OrganizerConsole({ id }: { id: bigint }) {
               </span>
             )}
           </p>
+          <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm">
+            {(phase === "open" || phase === "doors") && (
+              <button onClick={() => setEditing(true)} className="inline-flex items-center gap-1.5 text-ink-2 hover:text-ink">
+                <Pencil className="size-3.5" /> Edit details
+              </button>
+            )}
+            <Link href={`/app/new?from=${id}`} className="inline-flex items-center gap-1.5 text-ink-2 hover:text-ink">
+              <Repeat className="size-3.5" /> Run it again
+            </Link>
+            <Link href={`/e/${id}`} className="inline-flex items-center gap-1.5 text-ink-2 hover:text-ink">
+              <Eye className="size-3.5" /> Guest view
+            </Link>
+          </div>
         </div>
         {(phase === "doors" || phase === "open") && (
           <ButtonLink
@@ -101,11 +117,12 @@ export function OrganizerConsole({ id }: { id: bigint }) {
         </div>
         {/* On phones the invite/settle actions come before the guest list: they're the job to do. */}
         <aside className="flex flex-col gap-6 max-lg:order-first">
-          {phase !== "cancelled" && phase !== "settled" && <SharePanel eventId={id} />}
+          {phase !== "cancelled" && phase !== "settled" && <SharePanel event={event} />}
           {(phase === "closed" || phase === "settled") && <SettleCard event={event} phase={phase} onSettled={refetch} />}
           {phase === "open" && event.checkedIn === 0 && <CancelEventCard event={event} onCancelled={refetch} />}
         </aside>
       </div>
+      {editing && <EditDetailsDialog key={event.details.name} event={event} open={editing} onOpenChange={setEditing} />}
     </div>
   );
 }
