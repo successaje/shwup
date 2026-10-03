@@ -1,0 +1,34 @@
+[profile.default]
+src = "src"
+out = "out"
+libs = ["lib"]
+solc_version = "0.8.28"
+evm_version = "prague"
+optimizer = true
+optimizer_runs = 10_000
+fs_permissions = [{ access = "read-write", path = "./deployments" }]
+remappings = [
+  "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+  "forge-std/=lib/forge-std/src/",
+]
+
+[profile.default.fuzz]
+runs = 512
+
+[profile.default.invariant]
+runs = 128
+depth = 64
+fail_on_revert = false
+
+[fmt]
+line_length = 120
+tab_width = 4
+bracket_spacing = false
+
+[rpc_endpoints]
+arc = "${ARC_RPC_URL}"
+arc_testnet = "${ARC_TESTNET_RPC_URL}"
+
+[lint]
+# Scheduling is time-based by design; Arc timestamps are 1s-granular and set by permissioned validators.
+exclude_lints = ["block-timestamp"]
