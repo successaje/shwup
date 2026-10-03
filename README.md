@@ -195,6 +195,39 @@ vercel pull --environment=production
 vercel build --prod && vercel deploy --prebuilt --prod
 ```
 
+## Wallet passes (optional)
+
+Guests holding a spot can add their ticket to **Apple Wallet** or **Google Wallet**. The pass's QR
+is the same ticket the door scanner reads, it surfaces on the lock screen at the start time, and it
+expires when check-in closes. A pass is only issued for a spot currently held on-chain
+(`/api/passes/{apple|google}/{eventId}/{holder}`); it carries nothing secret, since the door checks
+the chain, not the pass. Each button appears only when its credentials are set (server-only env vars,
+base64-encoded where noted):
+
+| Variable | |
+| --- | --- |
+| `APPLE_PASS_TYPE_ID` | Pass Type ID, e.g. `pass.app.shwup.ticket` (Apple Developer → Identifiers) |
+| `APPLE_TEAM_ID` | Your 10-character team ID |
+| `APPLE_PASS_CERT` | base64 of the Pass Type ID certificate (PEM) |
+| `APPLE_PASS_KEY` | base64 of its private key (PEM); `APPLE_PASS_KEY_PASSPHRASE` if encrypted |
+| `APPLE_WWDR_CERT` | base64 of Apple's WWDR G4 intermediate certificate (PEM) |
+| `GOOGLE_WALLET_ISSUER_ID` | Issuer ID from the Google Pay & Wallet Console |
+| `GOOGLE_WALLET_SERVICE_ACCOUNT` | base64 of a service account JSON key with access to the Wallet API |
+
+```bash
+# Apple: export the Pass Type ID certificate from Keychain as pass.p12, then
+openssl pkcs12 -in pass.p12 -clcerts -nokeys -out pass-cert.pem -legacy
+openssl pkcs12 -in pass.p12 -nocerts -nodes -out pass-key.pem -legacy
+base64 -i pass-cert.pem | tr -d '\n' | vercel env add APPLE_PASS_CERT production
+```
+
+Google passes are written through the Wallet REST API before the save link is issued, so the link
+stays under Google's 1,800-character limit. New issuer accounts start in demo mode, where only
+accounts added as test users can save passes, until Google approves the issuer for production.
+
+Not yet: passes don't update after check-in (Apple needs a pass web service + push; Google needs an
+object patch on check-in).
+
 ## Deployments
 
 | Network | Chain ID | ShwUp |
