@@ -39,3 +39,6 @@ export function explorerUrl(kind: "tx" | "address", value: string): string | und
 /** Where people get USDC on this chain. */
 export const fundingUrl =
   chainKey === "arc" ? "https://www.circle.com/usdc" : chainKey === "arcTestnet" ? "https://faucet.circle.com" : undefined;
+
+/** Block the contract was deployed at; lower bound for log queries. */
+export const deployBlock = BigInt(process.env.NEXT_PUBLIC_SHWUP_DEPLOY_BLOCK || 0);

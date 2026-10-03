@@ -16,7 +16,8 @@ export type Stage = "idle" | "preparing" | "signing" | "settling" | "done" | "er
 export type StagedResult = { hash: Hash; finalityMs: number; receipt: TransactionReceipt };
 export type RunOutcome = ({ ok: true } & StagedResult) | { ok: false; error: FriendlyError | null };
 
-type Request = Parameters<typeof simulateContract>[1];
+/** A contract call; `value` is native USDC for payable functions (e.g. `rsvp`). */
+type Request = Omit<Parameters<typeof simulateContract>[1], "value"> & { value?: bigint };
 
 export function useStagedWrite() {
   const config = useConfig();
@@ -37,7 +38,7 @@ export function useStagedWrite() {
         setStage("preparing");
         if (chainId !== chain.id) await switchChainAsync({ chainId: chain.id });
         // Simulate first so contract errors surface as readable messages before any wallet prompt.
-        const { request: prepared } = await simulateContract(config, { ...request, account: address } as Request);
+        const { request: prepared } = await simulateContract(config, { ...request, account: address } as Parameters<typeof simulateContract>[1]);
 
         setStage("signing");
         const hash = await writeContract(config, prepared);
