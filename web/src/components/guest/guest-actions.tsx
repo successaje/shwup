@@ -1,6 +1,5 @@
 "use client";
 
-import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -11,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Field, Input } from "@/components/ui/field";
 import { ConnectDialog } from "@/components/wallet/connect-dialog";
-import { chain, chainKey, fundingUrl } from "@/config/chain";
+import { FundingGuide } from "@/components/wallet/funding-guide";
+import { chain, chainKey } from "@/config/chain";
 import { ForfeitPolicy, type ShwUpEvent } from "@/domain/event";
 import type { GuestView } from "@/domain/guest";
 import { shwupContract, useMyName } from "@/hooks/use-shwup";
@@ -56,6 +56,7 @@ function HoldSpot({ event, view, onDone }: { event: ShwUpEvent; view: Extract<Gu
   const { address } = useConnection();
   const { data: balance } = useBalance({ address, chainId: chain.id, query: { enabled: !!address } });
   const [connectOpen, setConnectOpen] = useState(false);
+  const [fundingOpen, setFundingOpen] = useState(false);
   const tx = useStagedWrite();
   const { name: savedName } = useMyName(address);
   const [draft, setDraft] = useState<string | null>(null); // null = untouched, show the saved name
@@ -108,18 +109,17 @@ function HoldSpot({ event, view, onDone }: { event: ShwUpEvent; view: Extract<Gu
         {view.rejoin ? "Hold my spot again" : "Hold my spot"} · {formatUsd(event.deposit)}
       </Button>
       {short && (
-        <div className="rounded-md border border-warn/30 bg-warn-soft px-4 py-3 text-sm">
-          <p className="font-medium">You need {formatUsd(event.deposit)} in USDC on {chain.name}</p>
-          <p className="mt-0.5 text-ink-2">
-            Your wallet has {formatUsd(balance.value)}.{" "}
-            {fundingUrl && (
-              <a href={fundingUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 font-medium text-ink underline underline-offset-4">
-                {chainKey === "arcTestnet" ? "Get test USDC" : "Get USDC"} <ArrowUpRight className="size-3.5" />
-              </a>
-            )}
+        <div className="flex flex-col gap-3 rounded-md border border-warn/30 bg-warn-soft px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <p>
+            <span className="font-medium">You need {formatUsd(event.deposit)} in USDC on {chain.name}.</span>{" "}
+            <span className="text-ink-2">Your wallet has {formatUsd(balance.value)}.</span>
           </p>
+          <Button size="sm" variant="secondary" onClick={() => setFundingOpen(true)} className="shrink-0">
+            {chainKey === "arcTestnet" ? "Get test USDC" : "Get USDC"}
+          </Button>
         </div>
       )}
+      <FundingGuide need={event.deposit} open={fundingOpen} onOpenChange={setFundingOpen} />
       <TxProgress stage={tx.stage} error={tx.error} result={tx.result} doneLabel="Spot held" />
       <p className="text-sm text-ink-2">
         You get it back the moment you&apos;re checked in at the door.
