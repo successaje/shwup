@@ -9,6 +9,7 @@
     "typecheck": "pnpm --filter web typecheck",
     "test": "pnpm --filter web test && pnpm test:contracts",
     "test:contracts": "cd contracts && forge test",
-    "abi": "node scripts/export-abi.mjs"
+    "abi": "node scripts/export-abi.mjs",
+    "dev:chain": "./scripts/dev-chain.sh"
   }
 }
