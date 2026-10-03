@@ -1,7 +1,8 @@
 "use client";
 
 import { ArrowLeft, Eye, Pencil, Repeat, ScanLine } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { markSeen } from "@/lib/seen";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useConnection } from "wagmi";
@@ -27,6 +28,11 @@ export function OrganizerConsole({ id }: { id: bigint }) {
   const { event, isLoading, error, refetch } = useEvent(id, { live: true });
   const justCreated = useSearchParams().get("created") === "1";
   const [editing, setEditing] = useState(false);
+  const held = event?.held;
+  // Opening the console counts as "seen" for the home page's new-RSVP badge.
+  useEffect(() => {
+    if (held !== undefined) markSeen(id, held);
+  }, [id, held]);
 
   if (isLoading || status === "reconnecting") return <ConsoleSkeleton />;
   if (error || !event) return <LoadError error={error} onRetry={() => refetch()} />;
