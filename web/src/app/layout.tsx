@@ -19,6 +19,8 @@ export const metadata: Metadata = {
   title: { default: "ShwUp — RSVPs that mean it", template: "%s · ShwUp" },
   description: "Hold your spot with a small deposit. Get it back the second you walk in. Built on Arc.",
   applicationName: "ShwUp",
+  appleWebApp: { capable: true, title: "ShwUp", statusBarStyle: "default" },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {
