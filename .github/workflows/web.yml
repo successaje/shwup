@@ -1,0 +1,27 @@
+name: web
+
+on:
+  push:
+    branches: [main]
+    paths: ["web/**", "pnpm-lock.yaml", ".github/workflows/web.yml"]
+  pull_request:
+    paths: ["web/**", "pnpm-lock.yaml", ".github/workflows/web.yml"]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SHWUP_CHAIN: arcTestnet
+      NEXT_PUBLIC_SHWUP_ADDRESS: "0x0000000000000000000000000000000000000001"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter web lint
+      - run: pnpm --filter web typecheck
+      - run: pnpm --filter web test
+      - run: pnpm --filter web build
