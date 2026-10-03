@@ -114,3 +114,28 @@ export function useAttendees(id: bigint | undefined, { live = false } = {}) {
     : undefined;
   return { ...query, rows };
 }
+
+/** Public display names for a set of wallets. Missing names are simply absent from the map. */
+export function useNames(addresses: readonly Address[] | undefined) {
+  const list = addresses ?? [];
+  const query = useReadContract({
+    ...contract,
+    functionName: "namesOf",
+    args: [list],
+    query: { enabled: isConfigured && list.length > 0, staleTime: 30_000 },
+  });
+  const names = new Map<string, string>();
+  query.data?.forEach((n, i) => n.trim() && names.set(list[i].toLowerCase(), n.trim()));
+  return { ...query, names, nameFor: (a: Address) => names.get(a.toLowerCase()) };
+}
+
+/** The connected wallet's own display name. */
+export function useMyName(address: Address | undefined) {
+  const query = useReadContract({
+    ...contract,
+    functionName: "nameOf",
+    args: [address ?? zeroAddress],
+    query: { enabled: isConfigured && !!address },
+  });
+  return { ...query, name: query.data?.trim() ?? "" };
+}
