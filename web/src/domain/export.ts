@@ -5,6 +5,7 @@ const STATUS_TEXT: Record<TicketStatus, string> = {
   [TicketStatus.Held]: "holding",
   [TicketStatus.CheckedIn]: "checked in",
   [TicketStatus.Released]: "cancelled",
+  [TicketStatus.Transferred]: "gave spot away",
 };
 
 const cell = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);

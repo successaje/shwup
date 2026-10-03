@@ -19,7 +19,8 @@ const ORDER: Record<TicketStatus, number> = {
   [TicketStatus.Held]: 0,
   [TicketStatus.CheckedIn]: 1,
   [TicketStatus.Released]: 2,
-  [TicketStatus.None]: 3,
+  [TicketStatus.Transferred]: 3,
+  [TicketStatus.None]: 4,
 };
 
 export function AttendeeList({ event, phase, onChange }: { event: ShwUpEvent; phase: EventPhase; onChange: () => void }) {
@@ -53,7 +54,8 @@ export function AttendeeList({ event, phase, onChange }: { event: ShwUpEvent; ph
   };
 
   const sorted = rows ? [...rows].sort((a, b) => ORDER[a.status] - ORDER[b.status]) : undefined;
-  const active = sorted?.filter((r) => r.status !== TicketStatus.Released) ?? [];
+  // People who cancelled or passed their spot on aren't coming; only count them.
+  const active = sorted?.filter((r) => r.status === TicketStatus.Held || r.status === TicketStatus.CheckedIn) ?? [];
   const released = (sorted?.length ?? 0) - active.length;
 
   return (

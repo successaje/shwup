@@ -1,4 +1,4 @@
-import { formatUnits } from "viem";
+import { formatUnits, getAddress, isAddress, zeroAddress, type Address } from "viem";
 import { encodeDetails, ForfeitPolicy, LIMITS, type ShwUpEvent } from "@/domain/event";
 import { parseUsd } from "@/lib/money";
 import { toSeconds } from "@/lib/time";
@@ -26,6 +26,7 @@ export type DoorsOption = (typeof DOORS_OPTIONS)[number]["value"];
 
 export const DEPOSIT_PRESETS = ["2", "5", "10", "20"] as const;
 export const MAX_DEPOSIT_USD = 1_000;
+export const MAX_BOND_USD = 10_000;
 
 export type CreateEventForm = {
   name: string;
@@ -37,6 +38,9 @@ export type CreateEventForm = {
   cancel: CancelOption;
   doors: DoorsOption;
   forfeit: ForfeitPolicy;
+  beneficiary: string; // address, only for ForfeitPolicy.Beneficiary
+  cause: string; // the beneficiary's name, shown to guests
+  bond: string; // dollars; blank = no bond
 };
 
 export function defaultForm(now = new Date()): CreateEventForm {
@@ -54,6 +58,9 @@ export function defaultForm(now = new Date()): CreateEventForm {
     cancel: "24",
     doors: "3",
     forfeit: ForfeitPolicy.Attendees,
+    beneficiary: "",
+    cause: "",
+    bond: "",
   };
 }
 
@@ -66,6 +73,7 @@ export type CreateEventArgs = readonly [
   cancelCutoff: bigint,
   checkInEndsAt: bigint,
   forfeitPolicy: number,
+  beneficiary: Address,
   metadata: string,
 ];
 
@@ -73,7 +81,9 @@ export type CreateEventArgs = readonly [
 export function buildCreateEvent(
   form: CreateEventForm,
   now = new Date(),
-): { ok: true; args: CreateEventArgs; start: Date; cutoff: Date; doorsClose: Date } | { ok: false; errors: FormErrors } {
+):
+  | { ok: true; args: CreateEventArgs; value: bigint; start: Date; cutoff: Date; doorsClose: Date }
+  | { ok: false; errors: FormErrors } {
   const errors: FormErrors = {};
 
   const name = form.name.trim();
@@ -104,6 +114,21 @@ export function buildCreateEvent(
     if (!Number.isInteger(capacity) || capacity < 1 || capacity > 100_000) errors.capacity = "Use a whole number, or leave blank for no limit.";
   }
 
+  let beneficiary: Address = zeroAddress;
+  if (form.forfeit === ForfeitPolicy.Beneficiary) {
+    const raw = form.beneficiary.trim();
+    if (!isAddress(raw, { strict: false }) || /^0x0{40}$/i.test(raw)) errors.beneficiary = "Paste the wallet address that should receive no-show deposits.";
+    else beneficiary = getAddress(raw);
+  }
+
+  let bond = 0n;
+  if (form.bond.trim()) {
+    const parsed = parseUsd(form.bond);
+    if (parsed === null) errors.bond = "Enter an amount, like 50, or leave blank.";
+    else if (Number(form.bond.replace(/^\$/, "")) > MAX_BOND_USD) errors.bond = `Bonds are capped at $${MAX_BOND_USD.toLocaleString("en-US")}.`;
+    else bond = parsed;
+  }
+
   if (Object.keys(errors).length > 0 || deposit === null) return { ok: false, errors };
 
   const cutoff =
@@ -113,7 +138,8 @@ export function buildCreateEvent(
   // A cutoff in the past just means "no cancellations" — that's what the contract does with it.
   const doorsClose = new Date(start.getTime() + Number(form.doors) * HOUR);
 
-  const metadata = encodeDetails({ name, location, description: form.description });
+  const cause = form.forfeit === ForfeitPolicy.Beneficiary ? form.cause.slice(0, LIMITS.cause) : undefined;
+  const metadata = encodeDetails({ name, location, description: form.description, cause });
   if (new TextEncoder().encode(metadata).length > LIMITS.metadataBytes) {
     return { ok: false, errors: { description: "The event details are too long." } };
   }
@@ -123,7 +149,8 @@ export function buildCreateEvent(
     start,
     cutoff,
     doorsClose,
-    args: [deposit, capacity, toSeconds(start), toSeconds(cutoff), toSeconds(doorsClose), form.forfeit, metadata] as const,
+    value: bond,
+    args: [deposit, capacity, toSeconds(start), toSeconds(cutoff), toSeconds(doorsClose), form.forfeit, beneficiary, metadata] as const,
   };
 }
 
@@ -137,10 +164,23 @@ function closest<T extends string>(hours: number, options: readonly { value: T }
 }
 
 /** Settings an organizer reuses from event to event. */
-export type OrganizerDefaults = Pick<CreateEventForm, "location" | "deposit" | "capacity" | "cancel" | "doors" | "forfeit">;
+export type OrganizerDefaults = Pick<
+  CreateEventForm,
+  "location" | "deposit" | "capacity" | "cancel" | "doors" | "forfeit" | "beneficiary" | "cause" | "bond"
+>;
 
 export function defaultsFromForm(form: CreateEventForm): OrganizerDefaults {
-  return { location: form.location.trim(), deposit: form.deposit, capacity: form.capacity, cancel: form.cancel, doors: form.doors, forfeit: form.forfeit };
+  return {
+    location: form.location.trim(),
+    deposit: form.deposit,
+    capacity: form.capacity,
+    cancel: form.cancel,
+    doors: form.doors,
+    forfeit: form.forfeit,
+    beneficiary: form.beneficiary.trim(),
+    cause: form.cause.trim(),
+    bond: form.bond,
+  };
 }
 
 /** A new form that starts from what this organizer did last time. */
@@ -153,7 +193,10 @@ export function formWithDefaults(defaults: Partial<OrganizerDefaults> | null, no
  * in the future.
  */
 export function formFromEvent(
-  e: Pick<ShwUpEvent, "details" | "deposit" | "capacity" | "startsAt" | "cancelCutoff" | "checkInEndsAt" | "forfeitPolicy">,
+  e: Pick<
+    ShwUpEvent,
+    "details" | "deposit" | "capacity" | "startsAt" | "cancelCutoff" | "checkInEndsAt" | "forfeitPolicy" | "beneficiary" | "bond"
+  >,
   now = new Date(),
 ): CreateEventForm {
   const week = 7 * 24 * HOUR;
@@ -171,10 +214,15 @@ export function formFromEvent(
     location: e.details.location,
     description: e.details.description ?? "",
     startsAt: toLocalInputValue(new Date(start)),
-    deposit: formatUnits(e.deposit, 18).replace(/\.0$/, ""),
+    deposit: usd(e.deposit),
     capacity: e.capacity ? String(e.capacity) : "",
     cancel,
     doors,
     forfeit: e.forfeitPolicy,
+    beneficiary: e.forfeitPolicy === ForfeitPolicy.Beneficiary ? e.beneficiary : "",
+    cause: e.details.cause ?? "",
+    bond: e.bond > 0n ? usd(e.bond) : "",
   };
 }
+
+const usd = (v: bigint) => formatUnits(v, 18).replace(/\.0$/, "");

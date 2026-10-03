@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ForfeitPolicy, TicketStatus, type ShwUpEvent } from "./event";
-import { guestView } from "./guest";
+import { guestView, offerFor } from "./guest";
 
 const now = new Date("2026-10-10T12:00:00Z");
 const h = (n: number) => new Date(now.getTime() + n * 3_600_000);
@@ -19,6 +19,9 @@ const event: ShwUpEvent = {
   cancelled: false,
   settled: false,
   bonusPerAttendee: 0n,
+  beneficiary: "0x0000000000000000000000000000000000000000",
+  bond: 0n,
+  bondPerGuest: 0n,
   details: { name: "Meetup", location: "Here" },
 };
 const t = (status: TicketStatus, extra: Partial<{ bonusClaimed: boolean; claimable: bigint }> = {}) => ({
@@ -30,13 +33,27 @@ const t = (status: TicketStatus, extra: Partial<{ bonusClaimed: boolean; claimab
 
 describe("guestView", () => {
   it("invites people without a spot", () => {
-    expect(guestView(event, undefined, now)).toEqual({ kind: "invite", phase: "open", full: false, rejoin: false });
+    expect(guestView(event, undefined, now)).toEqual({
+      kind: "invite",
+      phase: "open",
+      full: false,
+      rejoin: false,
+      handedOver: false,
+      offer: null,
+    });
     expect(guestView({ ...event, held: 2 }, undefined, now)).toMatchObject({ kind: "invite", full: true });
     expect(guestView(event, t(TicketStatus.Released), now)).toMatchObject({ kind: "invite", rejoin: true });
   });
 
+  it("lets people take a spot someone gave up, even when full", () => {
+    const leaver = "0x00000000000000000000000000000000000000aa";
+    expect(guestView({ ...event, held: 2 }, undefined, now, leaver)).toMatchObject({ kind: "invite", full: false, offer: leaver });
+    expect(guestView(event, t(TicketStatus.Transferred), now)).toMatchObject({ kind: "invite", rejoin: true, handedOver: true });
+    expect(guestView(event, { ...t(TicketStatus.Held), offered: true }, h(13))).toMatchObject({ kind: "holding", offered: true });
+  });
+
   it("shows a held ticket with the cancel window", () => {
-    expect(guestView(event, t(TicketStatus.Held), now)).toEqual({ kind: "holding", phase: "open", canCancel: true });
+    expect(guestView(event, t(TicketStatus.Held), now)).toEqual({ kind: "holding", phase: "open", canCancel: true, offered: false });
     expect(guestView(event, t(TicketStatus.Held), h(13))).toMatchObject({ kind: "holding", canCancel: false });
     expect(guestView(event, t(TicketStatus.Held), h(23.5))).toMatchObject({ kind: "holding", phase: "doors" });
   });
@@ -63,5 +80,23 @@ describe("guestView", () => {
 
   it("closes RSVPs after check-in ends", () => {
     expect(guestView(event, undefined, h(28))).toEqual({ kind: "closed", phase: "closed" });
+  });
+});
+
+describe("offerFor", () => {
+  const me = "0x00000000000000000000000000000000000000b0" as const;
+  const anyone = "0x0000000000000000000000000000000000000000" as const;
+  const a = "0x00000000000000000000000000000000000000a1" as const;
+  const b = "0x00000000000000000000000000000000000000a2" as const;
+
+  it("prefers an offer made to the viewer by name", () => {
+    expect(offerFor([{ holder: a, to: anyone }, { holder: b, to: me }], me)).toBe(b);
+  });
+
+  it("takes open offers, never ones meant for someone else or the viewer's own", () => {
+    expect(offerFor([{ holder: a, to: b }], me)).toBeNull();
+    expect(offerFor([{ holder: me, to: anyone }], me)).toBeNull();
+    expect(offerFor([{ holder: a, to: anyone }], undefined)).toBe(a);
+    expect(offerFor(undefined, me)).toBeNull();
   });
 });

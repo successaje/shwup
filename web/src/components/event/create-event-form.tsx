@@ -46,6 +46,9 @@ export function CreateEventForm({ initial }: { initial?: Form }) {
 
   const deposit = parseUsd(form.deposit) ?? 0n;
   const customDeposit = !(DEPOSIT_PRESETS as readonly string[]).includes(form.deposit);
+  const bondValue = (form.bond.trim() && parseUsd(form.bond)) || 0n;
+  const noShowsTo =
+    form.forfeit === ForfeitPolicy.Attendees ? "people who came" : form.forfeit === ForfeitPolicy.Organizer ? "you" : form.cause.trim() || "your cause";
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -59,7 +62,7 @@ export function CreateEventForm({ initial }: { initial?: Form }) {
       setConnectOpen(true);
       return;
     }
-    const result = await tx.run({ ...shwupContract, functionName: "createEvent", args: built.args });
+    const result = await tx.run({ ...shwupContract, functionName: "createEvent", args: built.args, value: built.value });
     if (!result.ok) return;
     const [created] = parseEventLogs({ abi: shwupAbi, eventName: "EventCreated", logs: result.receipt.logs });
     saveOrganizerDefaults(defaultsFromForm(form));
@@ -175,9 +178,63 @@ export function CreateEventForm({ initial }: { initial?: Form }) {
                   label: "It goes to me",
                   description: "Covers the cost of an empty seat. Best for classes and appointments.",
                 },
+                {
+                  value: String(ForfeitPolicy.Beneficiary),
+                  label: "It goes to a cause",
+                  description: "A charity, community fund or next event's budget. Nobody profits from no-shows.",
+                },
               ]}
             />
+            {form.forfeit === ForfeitPolicy.Beneficiary && (
+              <div className="mt-2 grid animate-rise gap-4 sm:grid-cols-[1fr_1.4fr]">
+                <Field label="Who it's for" optional hint="Shown to guests.">
+                  {(p) => (
+                    <Input
+                      {...p}
+                      value={form.cause}
+                      onChange={(e) => set("cause", e.target.value)}
+                      maxLength={LIMITS.cause}
+                      placeholder="Lagos Food Bank"
+                    />
+                  )}
+                </Field>
+                <Field label="Their wallet on Arc" error={errors.beneficiary} hint="Fixed once the event is created.">
+                  {(p) => (
+                    <Input
+                      {...p}
+                      value={form.beneficiary}
+                      onChange={(e) => set("beneficiary", e.target.value)}
+                      placeholder="0x…"
+                      spellCheck={false}
+                      autoComplete="off"
+                      className="num"
+                    />
+                  )}
+                </Field>
+              </div>
+            )}
           </fieldset>
+
+          <Field
+            label="Host bond"
+            optional
+            error={errors.bond}
+            hint="Put money behind your own promise. If you cancel, it's split among everyone holding a spot; otherwise it comes back to you after the event."
+          >
+            {(p) => (
+              <div className="relative w-40">
+                <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-ink-3">$</span>
+                <Input
+                  {...p}
+                  inputMode="decimal"
+                  value={form.bond}
+                  onChange={(e) => set("bond", e.target.value)}
+                  placeholder="None"
+                  className="num pl-7"
+                />
+              </div>
+            )}
+          </Field>
         </section>
 
         <section className="border-t border-line pt-6">
@@ -230,7 +287,7 @@ export function CreateEventForm({ initial }: { initial?: Form }) {
 
         <div className="flex flex-col gap-4 border-t border-line pt-8">
           <Button type="submit" size="lg" loading={tx.busy} className="sm:self-start">
-            {address ? "Create event" : "Connect wallet to create"}
+            {address ? (bondValue > 0n ? `Create event · post ${formatUsd(bondValue)} bond` : "Create event") : "Connect wallet to create"}
           </Button>
           <TxProgress stage={tx.stage} error={tx.error} result={tx.result} doneLabel="Event created" className="max-w-md" />
           <p className="max-w-md text-xs text-ink-3">
@@ -250,9 +307,9 @@ export function CreateEventForm({ initial }: { initial?: Form }) {
             deposit={deposit}
             footnote={
               deposit > 0n &&
-              (form.forfeit === ForfeitPolicy.Attendees
-                ? `Back at the door. No-shows' ${formatUsd(deposit)} goes to people who came.`
-                : `Back at the door. No-shows forfeit it.`)
+              (form.forfeit === ForfeitPolicy.Organizer
+                ? `Back at the door. No-shows forfeit it.`
+                : `Back at the door. No-shows' ${formatUsd(deposit)} goes to ${noShowsTo}.`)
             }
           />
         </div>

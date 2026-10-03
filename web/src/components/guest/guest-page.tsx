@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, MapPin } from "lucide-react";
+import { ArrowUpRight, MapPin, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -18,13 +18,13 @@ import { LoadError } from "@/components/load-error";
 import { QrCode } from "@/components/qr-code";
 import { Skeleton } from "@/components/ui/skeleton";
 import { explorerUrl } from "@/config/chain";
-import { ForfeitPolicy, TicketStatus, type ShwUpEvent } from "@/domain/event";
-import { guestView, stubState } from "@/domain/guest";
+import { forfeitRecipient, TicketStatus, type ShwUpEvent } from "@/domain/event";
+import { guestView, offerFor, stubState } from "@/domain/guest";
 import { ticketUrl } from "@/domain/ticket-code";
 import { useCheckInReceipt } from "@/hooks/use-check-in-receipt";
 import { useNow } from "@/hooks/use-now";
 import { useOrigin } from "@/hooks/use-origin";
-import { useEvent, useMyName, useTicket } from "@/hooks/use-shwup";
+import { useEvent, useMyName, useOffers, useTicket } from "@/hooks/use-shwup";
 import { shortAddress } from "@/lib/address";
 import { formatUsd } from "@/lib/money";
 import { formatWhen } from "@/lib/time";
@@ -35,6 +35,7 @@ export function GuestPage({ id }: { id: bigint }) {
   const { address } = useConnection();
   const { event, isLoading, error, refetch: refetchEvent } = useEvent(id, { live: true });
   const { ticket, refetch: refetchTicket, isLoading: ticketLoading } = useTicket(id, address, { live: true });
+  const { offers, refetch: refetchOffers } = useOffers(id, { live: true });
   // A ticket QR scanned with a phone camera lands here with ?ticket=<holder>.
   const scannedParam = useSearchParams().get("ticket");
   const scannedHolder = scannedParam && isAddress(scannedParam) ? getAddress(scannedParam) : undefined;
@@ -52,7 +53,7 @@ export function GuestPage({ id }: { id: bigint }) {
   }, [ticket?.status]);
 
   const { name: myName } = useMyName(address);
-  const view = event ? guestView(event, address ? ticket : undefined, now) : undefined;
+  const view = event ? guestView(event, address ? ticket : undefined, now, offerFor(offers, address)) : undefined;
   const receipt = useCheckInReceipt(id, address, view?.kind === "arrived");
 
   if (isLoading) return <GuestSkeleton />;
@@ -61,6 +62,7 @@ export function GuestPage({ id }: { id: bigint }) {
   const refresh = () => {
     refetchEvent();
     refetchTicket();
+    refetchOffers();
   };
   const isOrganizer = address?.toLowerCase() === event.organizer.toLowerCase();
   const showCode = view.kind === "holding" && address && origin;
@@ -122,7 +124,6 @@ export function GuestPage({ id }: { id: bigint }) {
 }
 
 function EventAbout({ event }: { event: ShwUpEvent }) {
-  const split = event.forfeitPolicy === ForfeitPolicy.Attendees;
   return (
     <div className="flex min-w-0 flex-col gap-10">
       {/* On phones the ticket above already shows name, time and place. */}
@@ -165,9 +166,19 @@ function EventAbout({ event }: { event: ShwUpEvent }) {
             You get it back the moment you&apos;re scanned in at the door. No forms, no waiting.
           </Step>
           <Step n={3} title="Or don't">
-            If you never arrive, your deposit {split ? "is split among the people who came" : "goes to the organizer"}.
+            If you never arrive, your deposit goes to {forfeitRecipient(event)}. Can&apos;t make it after all? Pass your
+            spot to someone else and they pay you back.
           </Step>
         </ol>
+        {event.bond > 0n && !event.cancelled && (
+          <p className="mt-6 flex items-start gap-2 rounded-md border border-line bg-surface px-3 py-2.5 text-sm">
+            <ShieldCheck className="mt-0.5 size-4 shrink-0 text-ok" />
+            <span>
+              <span className="font-medium">The host put up {formatUsd(event.bond)}.</span>{" "}
+              <span className="text-ink-2">If they cancel, it&apos;s split among everyone holding a spot.</span>
+            </span>
+          </p>
+        )}
         <p className="mt-6 text-xs text-ink-3">
           {event.capacity > 0 ? `${event.held} of ${event.capacity} spots held` : `${event.held} spots held`}
         </p>

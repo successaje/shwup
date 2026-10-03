@@ -7,7 +7,8 @@ import { eventPhase, ForfeitPolicy, noShows, TicketStatus, type ShwUpEvent } fro
 export type ActivityKind =
   | "holding" // deposit currently held
   | "returned" // got deposit back at the door
-  | "refunded" // cancelled (or event cancelled) — deposit back
+  | "refunded" // cancelled (or event cancelled) — deposit back, plus any share of the host's bond
+  | "handedOver" // gave the spot to someone who paid the deposit back
   | "refundOwed" // event cancelled, refund waiting to be claimed
   | "forfeited" // didn't show
   | "bonus" // collected share of no-shows
@@ -31,11 +32,13 @@ export function guestActivity(event: ShwUpEvent, ticket: GuestTicket, now = new 
 
   switch (ticket.status) {
     case TicketStatus.Held:
-      if (event.cancelled) return [{ ...base, key: k("refundOwed"), kind: "refundOwed", amount: event.deposit }];
+      if (event.cancelled) return [{ ...base, key: k("refundOwed"), kind: "refundOwed", amount: event.deposit + event.bondPerGuest }];
       if (phase === "closed" || phase === "settled") return [{ ...base, key: k("forfeited"), kind: "forfeited", amount: event.deposit }];
       return [{ ...base, key: k("holding"), kind: "holding", amount: event.deposit }];
     case TicketStatus.Released:
-      return [{ ...base, key: k("refunded"), kind: "refunded", amount: event.deposit }];
+      return [{ ...base, key: k("refunded"), kind: "refunded", amount: event.deposit + (event.cancelled ? event.bondPerGuest : 0n) }];
+    case TicketStatus.Transferred:
+      return [{ ...base, key: k("handedOver"), kind: "handedOver", amount: event.deposit }];
     case TicketStatus.CheckedIn: {
       const items: ActivityItem[] = [{ ...base, key: k("returned"), kind: "returned", amount: event.deposit }];
       if (ticket.bonusClaimed) items.push({ ...base, at: event.checkInEndsAt, key: k("bonus"), kind: "bonus", amount: event.bonusPerAttendee });
@@ -52,7 +55,7 @@ export function guestTotals(items: ActivityItem[]) {
   const sum = (kinds: ActivityKind[]) => items.filter((i) => kinds.includes(i.kind)).reduce((a, i) => a + i.amount, 0n);
   return {
     held: sum(["holding"]),
-    returned: sum(["returned", "refunded"]),
+    returned: sum(["returned", "refunded", "handedOver"]),
     earned: sum(["bonus"]),
     owed: sum(["bonusOwed", "refundOwed"]),
     forfeited: sum(["forfeited"]),

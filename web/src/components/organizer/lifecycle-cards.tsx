@@ -4,7 +4,7 @@ import { useState } from "react";
 import { TxProgress } from "@/components/tx-progress";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
-import { ForfeitPolicy, noShows, type EventPhase, type ShwUpEvent } from "@/domain/event";
+import { ForfeitPolicy, forfeitRecipient, noShows, type EventPhase, type ShwUpEvent } from "@/domain/event";
 import { shwupContract } from "@/hooks/use-shwup";
 import { useStagedWrite } from "@/hooks/use-staged-write";
 import { formatUsd } from "@/lib/money";
@@ -16,6 +16,9 @@ export function SettleCard({ event, phase, onSettled }: { event: ShwUpEvent; pha
   const forfeited = BigInt(missing) * event.deposit;
   const split = event.forfeitPolicy === ForfeitPolicy.Attendees && event.checkedIn > 0;
   const each = split ? forfeited / BigInt(event.checkedIn) : 0n;
+  // Organizer, or the people who came when nobody did: the contract pays the organizer in both cases.
+  const recipient = event.forfeitPolicy === ForfeitPolicy.Beneficiary ? forfeitRecipient(event) : "you";
+  const bondBack = event.bond > 0n ? ` Your ${formatUsd(event.bond)} bond comes back to you.` : "";
 
   if (phase === "settled") {
     return (
@@ -26,7 +29,7 @@ export function SettleCard({ event, phase, onSettled }: { event: ShwUpEvent; pha
             ? "Everyone who held a spot showed up."
             : event.bonusPerAttendee > 0n
               ? `${formatUsd(forfeited)} from ${missing} no-show${missing === 1 ? "" : "s"} was split — ${formatUsd(event.bonusPerAttendee)} for each of the ${event.checkedIn} people who came.`
-              : `${formatUsd(forfeited)} from ${missing} no-show${missing === 1 ? "" : "s"} was paid to you.`}
+              : `${formatUsd(forfeited)} from ${missing} no-show${missing === 1 ? "" : "s"} was paid to ${recipient}.`}
         </p>
       </section>
     );
@@ -42,10 +45,10 @@ export function SettleCard({ event, phase, onSettled }: { event: ShwUpEvent; pha
       <h2 className="text-sm font-medium">Check-in has closed</h2>
       <p className="mt-1 text-sm text-ink-2">
         {missing === 0
-          ? "Everyone showed up. Settle to close the event."
+          ? `Everyone showed up. Settle to close the event.${bondBack}`
           : split
-            ? `${missing} no-show${missing === 1 ? "" : "s"} forfeit ${formatUsd(forfeited)}. Each of the ${event.checkedIn} people who came gets ${formatUsd(each)}.`
-            : `${missing} no-show${missing === 1 ? "" : "s"} forfeit ${formatUsd(forfeited)}, paid to you.`}
+            ? `${missing} no-show${missing === 1 ? "" : "s"} forfeit ${formatUsd(forfeited)}. Each of the ${event.checkedIn} people who came gets ${formatUsd(each)}.${bondBack}`
+            : `${missing} no-show${missing === 1 ? "" : "s"} forfeit ${formatUsd(forfeited)}, paid to ${recipient}.${bondBack}`}
       </p>
       <Button className="mt-4" block loading={tx.busy} onClick={settle}>
         Settle no-shows
@@ -84,8 +87,12 @@ export function CancelEventCard({ event, onCancelled }: { event: ShwUpEvent; onC
         title="Cancel this event?"
         description={
           event.held > 0
-            ? `${event.held} ${event.held === 1 ? "person holds" : "people hold"} a spot. Every deposit becomes claimable in full from the event page.`
-            : "Nobody holds a spot yet."
+            ? `${event.held} ${event.held === 1 ? "person holds" : "people hold"} a spot. Every deposit becomes claimable in full from the event page${
+                event.bond > 0n ? `, along with an equal share of your ${formatUsd(event.bond)} bond` : ""
+              }.`
+            : event.bond > 0n
+              ? `Nobody holds a spot yet, so your ${formatUsd(event.bond)} bond comes straight back.`
+              : "Nobody holds a spot yet."
         }
       >
         <p className="text-sm text-ink-2">This can&apos;t be undone.</p>

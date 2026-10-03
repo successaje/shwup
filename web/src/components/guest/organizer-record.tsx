@@ -2,7 +2,7 @@
 
 import { ShieldCheck } from "lucide-react";
 import { organizerRecord } from "@/domain/activity";
-import { ForfeitPolicy, type ShwUpEvent } from "@/domain/event";
+import { ForfeitPolicy, forfeitRecipient, type ShwUpEvent } from "@/domain/event";
 import { useNames, useOrganizerEvents } from "@/hooks/use-shwup";
 import { shortAddress } from "@/lib/address";
 
@@ -34,6 +34,7 @@ export function OrganizerRecord({ event }: { event: ShwUpEvent }) {
         Hosted by <span className="text-ink-2">{name}</span>
         {detail && <> · {detail}</>}
         {event.forfeitPolicy === ForfeitPolicy.Organizer && " The organizer keeps no-show deposits for this event."}
+        {event.forfeitPolicy === ForfeitPolicy.Beneficiary && ` No-show deposits go to ${forfeitRecipient(event)}.`}
       </p>
     </div>
   );

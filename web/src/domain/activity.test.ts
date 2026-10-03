@@ -20,6 +20,9 @@ const ev = (over: Partial<ShwUpEvent> = {}): ShwUpEvent => ({
   cancelled: false,
   settled: true,
   bonusPerAttendee: $(1.25),
+  beneficiary: "0x0000000000000000000000000000000000000000",
+  bond: 0n,
+  bondPerGuest: 0n,
   details: { name: "Meetup", location: "Here" },
   ...over,
 });

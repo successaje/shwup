@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { zeroAddress } from "viem";
 import { toast } from "sonner";
 import { useBalance, useConnection } from "wagmi";
 import { AddToCalendar } from "@/components/guest/add-to-calendar";
@@ -12,7 +13,7 @@ import { Field, Input } from "@/components/ui/field";
 import { ConnectDialog } from "@/components/wallet/connect-dialog";
 import { FundingGuide } from "@/components/wallet/funding-guide";
 import { chain, chainKey } from "@/config/chain";
-import { ForfeitPolicy, type ShwUpEvent } from "@/domain/event";
+import { forfeitRecipient, type ShwUpEvent } from "@/domain/event";
 import type { GuestView } from "@/domain/guest";
 import { shwupContract, useMyName } from "@/hooks/use-shwup";
 import { validateName } from "@/domain/names";
@@ -33,8 +34,7 @@ export function GuestActions({ event, view, onChange }: { event: ShwUpEvent; vie
       return (
         <Note title="You didn't make it in">
           Check-in closed before you were scanned, so your {formatUsd(event.deposit)} deposit{" "}
-          {view.settled ? "was forfeited" : "will be forfeited when the event is settled"}.
-          {event.forfeitPolicy === ForfeitPolicy.Attendees ? " It goes to the people who came." : " It goes to the organizer."}
+          {view.settled ? "was forfeited" : "will be forfeited when the event is settled"}. It goes to {forfeitRecipient(event)}.
         </Note>
       );
     case "refund":
@@ -65,16 +65,26 @@ function HoldSpot({ event, view, onDone }: { event: ShwUpEvent; view: Extract<Gu
   const short = balance !== undefined && balance.value < event.deposit;
 
   if (view.full) {
-    return <Note title="This event is full">Every spot is taken. If someone cancels, a spot opens up here.</Note>;
+    return (
+      <Note title="This event is full">
+        Every spot is taken. If someone can&apos;t make it and passes their spot on, you can take it here — keep this page
+        handy.
+      </Note>
+    );
   }
 
   const hold = async () => {
     if (!address) return setConnectOpen(true);
     if (nameError) return;
-    // One transaction either way: set/keep the name alongside holding the spot.
-    const r =
-      name && name !== savedName
-        ? await tx.run({ ...shwupContract, functionName: "rsvpAs", args: [event.id, name], value: event.deposit })
+    const newName = name && name !== savedName ? name : null;
+    // Taking someone's spot pays them back, so it comes before opening a new one. Either way it's
+    // one transaction, with the name set alongside.
+    const r = view.offer
+      ? newName
+        ? await tx.run({ ...shwupContract, functionName: "takeSpotAs", args: [event.id, view.offer, newName], value: event.deposit })
+        : await tx.run({ ...shwupContract, functionName: "takeSpot", args: [event.id, view.offer], value: event.deposit })
+      : newName
+        ? await tx.run({ ...shwupContract, functionName: "rsvpAs", args: [event.id, newName], value: event.deposit })
         : await tx.run({ ...shwupContract, functionName: "rsvp", args: [event.id], value: event.deposit });
     if (r.ok) {
       toast.success("Your spot is held", {
@@ -86,6 +96,13 @@ function HoldSpot({ event, view, onDone }: { event: ShwUpEvent; view: Extract<Gu
 
   return (
     <div className="flex flex-col gap-4">
+      {view.handedOver && <p className="text-sm text-ink-2">You passed your spot on and got your deposit back. Changed your mind? Hold a new one.</p>}
+      {view.offer && (
+        <p className="text-sm text-ink-2">
+          <span className="font-medium text-ink">Someone can&apos;t make it.</span> Take their spot — your deposit goes to them,
+          and comes back to you at the door.
+        </p>
+      )}
       {address && (
         <Field
           label="Your name"
@@ -106,7 +123,7 @@ function HoldSpot({ event, view, onDone }: { event: ShwUpEvent; view: Extract<Gu
         </Field>
       )}
       <Button size="lg" block loading={tx.busy} onClick={hold} disabled={short || !!nameError}>
-        {view.rejoin ? "Hold my spot again" : "Hold my spot"} · {formatUsd(event.deposit)}
+        {view.offer ? "Take this spot" : view.rejoin ? "Hold my spot again" : "Hold my spot"} · {formatUsd(event.deposit)}
       </Button>
       {short && (
         <div className="flex flex-col gap-3 rounded-md border border-warn/30 bg-warn-soft px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
@@ -133,6 +150,14 @@ function HoldSpot({ event, view, onDone }: { event: ShwUpEvent; view: Extract<Gu
 function Holding({ event, view, onChange }: { event: ShwUpEvent; view: Extract<GuestView, { kind: "holding" }>; onChange: () => void }) {
   const [open, setOpen] = useState(false);
   const tx = useStagedWrite();
+  const offerTx = useStagedWrite();
+
+  const setOffered = async (offer: boolean) => {
+    const r = offer
+      ? await offerTx.run({ ...shwupContract, functionName: "offerSpot", args: [event.id, zeroAddress] })
+      : await offerTx.run({ ...shwupContract, functionName: "withdrawOffer", args: [event.id] });
+    if (r.ok) onChange();
+  };
 
   const cancel = async () => {
     const r = await tx.run({ ...shwupContract, functionName: "cancelRsvp", args: [event.id] });
@@ -159,6 +184,32 @@ function Holding({ event, view, onChange }: { event: ShwUpEvent; view: Extract<G
         </p>
       )}
       <AddToCalendar event={event} />
+      {view.offered && (
+        <div className="flex flex-col gap-3 rounded-md border border-line bg-surface px-4 py-3 text-sm">
+          <p>
+            <span className="font-medium">Your spot is up for grabs.</span>{" "}
+            <span className="text-ink-2">
+              When someone takes it, your {formatUsd(event.deposit)} comes straight back. Until then it&apos;s still yours.
+            </span>
+          </p>
+          <Button size="sm" variant="ghost" className="self-start" loading={offerTx.busy} onClick={() => setOffered(false)}>
+            Keep my spot after all
+          </Button>
+          <TxProgress stage={offerTx.stage} error={offerTx.error} result={offerTx.result} />
+        </div>
+      )}
+      {!view.canCancel && !view.offered && (
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={() => setOffered(true)}
+            disabled={offerTx.busy}
+            className="self-start text-sm text-ink-3 underline-offset-4 hover:text-ink hover:underline"
+          >
+            Can&apos;t make it? Pass your spot to someone else
+          </button>
+          <TxProgress stage={offerTx.stage} error={offerTx.error} result={offerTx.result} />
+        </div>
+      )}
       {view.canCancel && (
         <>
           <button onClick={() => setOpen(true)} className="self-start text-sm text-ink-3 underline-offset-4 hover:text-ink hover:underline">
@@ -239,9 +290,12 @@ function ClaimRefund({ event, onDone }: { event: ShwUpEvent; onDone: () => void 
   };
   return (
     <div className="flex flex-col gap-4">
-      <Note title="This event was cancelled">Your full deposit is waiting for you.</Note>
+      <Note title="This event was cancelled">
+        Your full deposit is waiting for you
+        {event.bondPerGuest > 0n ? `, plus ${formatUsd(event.bondPerGuest)} from the host's bond for the trouble` : ""}.
+      </Note>
       <Button size="lg" block loading={tx.busy} onClick={claim}>
-        Get my {formatUsd(event.deposit)} back
+        Get my {formatUsd(event.deposit + event.bondPerGuest)}
       </Button>
       <TxProgress stage={tx.stage} error={tx.error} result={tx.result} doneLabel="Refunded" />
     </div>

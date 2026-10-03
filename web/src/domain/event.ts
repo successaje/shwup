@@ -4,6 +4,7 @@ import type { Address } from "viem";
 export enum ForfeitPolicy {
   Attendees = 0,
   Organizer = 1,
+  Beneficiary = 2,
 }
 
 /** Mirrors ShwUp.TicketStatus. */
@@ -12,6 +13,7 @@ export enum TicketStatus {
   Held = 1,
   CheckedIn = 2,
   Released = 3,
+  Transferred = 4,
 }
 
 /** Human-entered details, stored on-chain as compact JSON. */
@@ -19,6 +21,7 @@ export type EventDetails = {
   name: string;
   location: string;
   description?: string;
+  cause?: string; // who receives no-show deposits under ForfeitPolicy.Beneficiary, e.g. "Lagos Food Bank"
 };
 
 export type ShwUpEvent = {
@@ -35,6 +38,9 @@ export type ShwUpEvent = {
   cancelled: boolean;
   settled: boolean;
   bonusPerAttendee: bigint;
+  beneficiary: Address; // zero unless forfeitPolicy is Beneficiary
+  bond: bigint; // organizer's bond: back to them at settlement, or split among guests if they cancel
+  bondPerGuest: bigint; // set when cancelled
   details: EventDetails;
 };
 
@@ -45,6 +51,7 @@ export const LIMITS = {
   name: 80,
   location: 120,
   description: 600,
+  cause: 60,
   metadataBytes: 2048,
 } as const;
 
@@ -77,11 +84,24 @@ export function noShows(e: Pick<ShwUpEvent, "held" | "checkedIn">): number {
   return e.held - e.checkedIn;
 }
 
+/** Who no-show deposits go to, as a phrase: "the people who came", "the organizer", "Lagos Food Bank". */
+export function forfeitRecipient(e: Pick<ShwUpEvent, "forfeitPolicy" | "beneficiary" | "details">): string {
+  switch (e.forfeitPolicy) {
+    case ForfeitPolicy.Attendees:
+      return "the people who came";
+    case ForfeitPolicy.Organizer:
+      return "the organizer";
+    case ForfeitPolicy.Beneficiary:
+      return e.details.cause || `${e.beneficiary.slice(0, 6)}…${e.beneficiary.slice(-4)}`;
+  }
+}
+
 export function encodeDetails(details: EventDetails): string {
   const clean: EventDetails = {
     name: details.name.trim(),
     location: details.location.trim(),
     ...(details.description?.trim() ? { description: details.description.trim() } : {}),
+    ...(details.cause?.trim() ? { cause: details.cause.trim() } : {}),
   };
   return JSON.stringify(clean);
 }
@@ -96,6 +116,7 @@ export function decodeDetails(raw: string): EventDetails {
         name: typeof o.name === "string" && o.name.trim() ? o.name.slice(0, LIMITS.name) : "Untitled event",
         location: typeof o.location === "string" ? o.location.slice(0, LIMITS.location) : "",
         description: typeof o.description === "string" ? o.description.slice(0, LIMITS.description) : undefined,
+        ...(typeof o.cause === "string" && o.cause.trim() ? { cause: o.cause.slice(0, LIMITS.cause) } : {}),
       };
     }
   } catch {
@@ -117,6 +138,9 @@ type RawEvent = {
   cancelled: boolean;
   settled: boolean;
   bonusPerAttendee: bigint;
+  beneficiary: Address;
+  bond: bigint;
+  bondPerGuest: bigint;
   metadata: string;
 };
 
@@ -137,6 +161,9 @@ export function toShwUpEvent(id: bigint, raw: RawEvent): ShwUpEvent {
     cancelled: raw.cancelled,
     settled: raw.settled,
     bonusPerAttendee: raw.bonusPerAttendee,
+    beneficiary: raw.beneficiary,
+    bond: raw.bond,
+    bondPerGuest: raw.bondPerGuest,
     details: decodeDetails(raw.metadata),
   };
 }

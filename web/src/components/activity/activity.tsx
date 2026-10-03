@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowDownLeft, ArrowUpRight, CalendarCheck, CircleSlash, Clock, Gift, RotateCcw } from "lucide-react";
+import { ArrowDownLeft, ArrowRightLeft, ArrowUpRight, CalendarCheck, CircleSlash, Clock, Gift, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ButtonLink } from "@/components/ui/button";
@@ -42,6 +42,16 @@ const KIND: Record<
     text: (n) => (
       <>
         Refunded after cancelling <b>{n}</b>
+      </>
+    ),
+    tone: "text-ink-2",
+    sign: "+",
+  },
+  handedOver: {
+    icon: ArrowRightLeft,
+    text: (n) => (
+      <>
+        Passed your spot at <b>{n}</b> to someone else
       </>
     ),
     tone: "text-ink-2",

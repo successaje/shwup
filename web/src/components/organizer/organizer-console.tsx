@@ -18,7 +18,6 @@ import { ConnectPrompt } from "@/components/wallet/require-wallet";
 import { eventPhase, noShows, type ShwUpEvent } from "@/domain/event";
 import { useEvent } from "@/hooks/use-shwup";
 import { useNow } from "@/hooks/use-now";
-import { cn } from "@/lib/cn";
 import { formatUsd } from "@/lib/money";
 import { formatWhen, relative } from "@/lib/time";
 
@@ -148,15 +147,25 @@ function Stats({ event, phase, className }: { event: ShwUpEvent; phase: ReturnTy
           { label: phase === "open" ? "Held in contract" : "Still to arrive", value: phase === "open" ? formatUsd(BigInt(event.held) * event.deposit) : String(waiting) },
         ];
 
+  const bondNote =
+    event.bond > 0n && !event.cancelled
+      ? phase === "settled"
+        ? `Your ${formatUsd(event.bond)} bond was returned to you.`
+        : `Your ${formatUsd(event.bond)} bond is held until the event settles. If you cancel, it's split among guests holding a spot.`
+      : null;
+
   return (
-    <dl className={cn("grid grid-cols-3 divide-x divide-line rounded-md border border-line bg-surface", className)}>
-      {items.map((s) => (
-        <div key={s.label} className="px-4 py-4 sm:px-5">
-          <dt className="text-xs text-ink-3">{s.label}</dt>
-          <dd className="num mt-1 text-xl sm:text-2xl">{s.value}</dd>
-        </div>
-      ))}
-    </dl>
+    <div className={className}>
+      <dl className="grid grid-cols-3 divide-x divide-line rounded-md border border-line bg-surface">
+        {items.map((s) => (
+          <div key={s.label} className="px-4 py-4 sm:px-5">
+            <dt className="text-xs text-ink-3">{s.label}</dt>
+            <dd className="num mt-1 text-xl sm:text-2xl">{s.value}</dd>
+          </div>
+        ))}
+      </dl>
+      {bondNote && <p className="mt-2 text-xs text-ink-3">{bondNote}</p>}
+    </div>
   );
 }
 
