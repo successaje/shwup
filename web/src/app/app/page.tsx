@@ -1,3 +1,7 @@
+import { Home } from "@/components/home/home";
+
+export const metadata = { title: "Your events" };
+
 export default function AppHome() {
-  return <h1 className="font-display text-3xl font-medium tracking-tight">Your events</h1>;
+  return <Home />;
 }

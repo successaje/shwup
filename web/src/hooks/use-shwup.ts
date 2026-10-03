@@ -68,15 +68,34 @@ export function useMyEvents(owner: Address | undefined) {
     query: { enabled: all.length > 0 },
   });
 
+  const tickets = useReadContracts({
+    contracts: attending.flatMap((id) => [
+      { ...contract, functionName: "ticketOf", args: [id, owner ?? zeroAddress] } as const,
+      { ...contract, functionName: "claimable", args: [id, owner ?? zeroAddress] } as const,
+    ]),
+    allowFailure: false,
+    query: { enabled: enabled && attending.length > 0 },
+  });
+
   const byId = new Map<bigint, ShwUpEvent>();
   details.data?.forEach((raw, i) => byId.set(all[i], toShwUpEvent(all[i], raw)));
 
+  const ticketById = new Map<bigint, TicketView>();
+  if (tickets.data) {
+    attending.forEach((id, i) => {
+      const t = tickets.data[i * 2] as { status: number; bonusClaimed: boolean };
+      ticketById.set(id, { status: t.status as TicketStatus, bonusClaimed: t.bonusClaimed, claimable: tickets.data[i * 2 + 1] as bigint });
+    });
+  }
+
   return {
-    isLoading: ids.isLoading || (all.length > 0 && details.isLoading),
-    isError: ids.isError || details.isError,
-    refetch: () => Promise.all([ids.refetch(), details.refetch()]),
+    isLoading: ids.isLoading || (all.length > 0 && details.isLoading) || (attending.length > 0 && tickets.isLoading),
+    isError: ids.isError || details.isError || tickets.isError,
+    refetch: () => Promise.all([ids.refetch(), details.refetch(), tickets.refetch()]),
     organized: organized.map((id) => byId.get(id)).filter(Boolean) as ShwUpEvent[],
-    attending: attending.map((id) => byId.get(id)).filter(Boolean) as ShwUpEvent[],
+    attending: attending
+      .map((id) => ({ event: byId.get(id), ticket: ticketById.get(id) }))
+      .filter((x): x is { event: ShwUpEvent; ticket: TicketView | undefined } => !!x.event),
   };
 }
 
