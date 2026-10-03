@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCreateEvent, defaultForm, type CreateEventForm } from "./create-event";
+import { buildCreateEvent, defaultForm, defaultsFromForm, formFromEvent, formWithDefaults, type CreateEventForm } from "./create-event";
 
 const now = new Date("2026-10-03T12:00:00");
 const valid: CreateEventForm = {
@@ -50,5 +50,48 @@ describe("buildCreateEvent", () => {
   it("maps 'no cancellations' to a cutoff that has already passed", () => {
     const r = buildCreateEvent({ ...valid, cancel: "none" }, now);
     expect(r.ok && r.cutoff.getTime()).toBe(now.getTime());
+  });
+});
+
+describe("formFromEvent", () => {
+  const h = 3_600_000;
+  const start = new Date("2026-10-01T18:30:00");
+  const source = {
+    details: { name: "Builders Night", location: "The Workshop", description: "Demos" },
+    deposit: 25n * 10n ** 17n,
+    capacity: 40,
+    startsAt: start,
+    cancelCutoff: new Date(start.getTime() - 24 * h),
+    checkInEndsAt: new Date(start.getTime() + 3 * h),
+    forfeitPolicy: 1,
+  };
+
+  it("copies details and terms onto the next future weekly slot", () => {
+    const f = formFromEvent(source, new Date("2026-10-10T12:00:00"));
+    expect(f.startsAt).toBe("2026-10-15T18:30");
+    expect(f).toMatchObject({ name: "Builders Night", location: "The Workshop", description: "Demos", deposit: "2.5", capacity: "40", cancel: "24", doors: "3", forfeit: 1 });
+  });
+
+  it("snaps unusual windows to the nearest option", () => {
+    const f = formFromEvent({ ...source, cancelCutoff: new Date(start.getTime() - 5 * h), checkInEndsAt: new Date(start.getTime() + 8 * h) }, new Date("2026-09-01"));
+    expect(f.cancel).toBe("2");
+    expect(f.doors).toBe("6");
+  });
+
+  it("round-trips through buildCreateEvent", () => {
+    const now = new Date("2026-10-10T12:00:00");
+    expect(buildCreateEvent(formFromEvent(source, now), now).ok).toBe(true);
+  });
+});
+
+describe("organizer defaults", () => {
+  it("prefills a new form with what the organizer used last", () => {
+    const f = formWithDefaults({ location: "Common Kitchen", deposit: "10", forfeit: 1 });
+    expect(f).toMatchObject({ location: "Common Kitchen", deposit: "10", forfeit: 1, name: "" });
+  });
+
+  it("captures reusable settings, not one-off details", () => {
+    const d = defaultsFromForm({ ...valid, location: "  Hall B ", capacity: "30" });
+    expect(d).toEqual({ location: "Hall B", deposit: "5", capacity: "30", cancel: "24", doors: "3", forfeit: 0 });
   });
 });

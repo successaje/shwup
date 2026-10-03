@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { CreateEventForm } from "@/components/event/create-event-form";
+import { Suspense } from "react";
+import { NewEventScreen } from "@/components/event/new-event-screen";
 
 export const metadata: Metadata = { title: "New event" };
 
@@ -10,7 +11,9 @@ export default function NewEventPage() {
         <h1 className="font-display text-3xl font-medium tracking-tight sm:text-4xl">New event</h1>
         <p className="mt-2 text-ink-2">Set a small deposit. People who come get it back at the door.</p>
       </header>
-      <CreateEventForm />
+      <Suspense>
+        <NewEventScreen />
+      </Suspense>
     </div>
   );
 }
