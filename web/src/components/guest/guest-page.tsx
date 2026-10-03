@@ -136,7 +136,7 @@ function EventAbout({ event }: { event: ShwUpEvent }) {
       </header>
 
       <div className="flex flex-col gap-4">
-        <WhosGoing event={event} />
+        {!event.cancelled && <WhosGoing event={event} />}
         {event.details.location && (
           <a
             href={mapsUrl(event.details.location)}
@@ -180,7 +180,9 @@ function EventAbout({ event }: { event: ShwUpEvent }) {
           </p>
         )}
         <p className="mt-6 text-xs text-ink-3">
-          {event.capacity > 0 ? `${event.held} of ${event.capacity} spots held` : `${event.held} spots held`}
+          {event.capacity > 0
+            ? `${event.held} of ${event.capacity} spots held`
+            : `${event.held} ${event.held === 1 ? "spot" : "spots"} held`}
         </p>
         <div className="mt-2">
           <OrganizerRecord event={event} />

@@ -101,7 +101,7 @@ describe("formFromEvent", () => {
 
   it("snaps unusual windows to the nearest option", () => {
     const f = formFromEvent({ ...source, cancelCutoff: new Date(start.getTime() - 5 * h), checkInEndsAt: new Date(start.getTime() + 8 * h) }, new Date("2026-09-01"));
-    expect(f.cancel).toBe("2");
+    expect(f.cancel).toBe("4");
     expect(f.doors).toBe("6");
   });
 
@@ -112,6 +112,11 @@ describe("formFromEvent", () => {
 });
 
 describe("organizer defaults", () => {
+  it("never prefills a bond, even from older saved defaults", () => {
+    expect(defaultsFromForm({ ...valid, bond: "25" })).not.toHaveProperty("bond");
+    expect(formWithDefaults({ deposit: "10", bond: "25" } as never).bond).toBe("");
+  });
+
   it("prefills a new form with what the organizer used last", () => {
     const f = formWithDefaults({ location: "Common Kitchen", deposit: "10", forfeit: 1 });
     expect(f).toMatchObject({ location: "Common Kitchen", deposit: "10", forfeit: 1, name: "" });
@@ -119,6 +124,6 @@ describe("organizer defaults", () => {
 
   it("captures reusable settings, not one-off details", () => {
     const d = defaultsFromForm({ ...valid, location: "  Hall B ", capacity: "30" });
-    expect(d).toEqual({ location: "Hall B", deposit: "5", capacity: "30", cancel: "24", doors: "3", forfeit: 0, beneficiary: "", cause: "", bond: "" });
+    expect(d).toEqual({ location: "Hall B", deposit: "5", capacity: "30", cancel: "24", doors: "3", forfeit: 0, beneficiary: "", cause: "" });
   });
 });

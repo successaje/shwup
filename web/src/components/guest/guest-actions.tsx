@@ -41,7 +41,10 @@ export function GuestActions({ event, view, onChange }: { event: ShwUpEvent; vie
       return view.claimable ? (
         <ClaimRefund event={event} onDone={onChange} />
       ) : (
-        <Note title="Event cancelled">Your deposit has been returned.</Note>
+        <Note title="Event cancelled">
+          Your deposit has been returned
+          {event.bondPerGuest > 0n ? `, with ${formatUsd(event.bondPerGuest)} from the host's bond` : ""}.
+        </Note>
       );
     case "closed":
       return (

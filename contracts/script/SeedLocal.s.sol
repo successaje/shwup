@@ -55,6 +55,27 @@ contract SeedLocal is Script {
             address(0xF00D),
             '{"name":"Beach Cleanup","location":"Elegushi Beach, Lekki","description":"Gloves and bags provided.","cause":"Lagos Food Bank"}'
         );
+        // Same contract, other doors: a restaurant booking and an appointment.
+        uint256 table = shwup.createEvent(
+            20 ether,
+            1,
+            nowTs + 2 days,
+            nowTs + 2 days - 4 hours,
+            nowTs + 2 days + 1 hours,
+            ShwUp.ForfeitPolicy.Organizer,
+            address(0),
+            '{"name":"Table for 4","location":"Maison Lagos, Victoria Island","description":"Saturday dinner. Your deposit comes back when you are seated."}'
+        );
+        shwup.createEvent(
+            10 ether,
+            1,
+            nowTs + 4 days,
+            nowTs + 3 days,
+            nowTs + 4 days + 1 hours,
+            ShwUp.ForfeitPolicy.Organizer,
+            address(0),
+            '{"name":"Consultation \u00b7 30 min","location":"Studio 4, Yaba","description":"One-to-one session. Back when you check in; cancel a day ahead and it is back too."}'
+        );
         vm.stopBroadcast();
 
         for (uint256 i; i < guests.length; ++i) {
@@ -63,6 +84,7 @@ contract SeedLocal is Script {
             if (i < 2) shwup.rsvp{value: 10 ether}(nextWeek);
             if (i == 0) shwup.offerSpot(nextWeek, address(0));
             if (i == 2) shwup.rsvp{value: 3 ether}(cleanup);
+            if (i == 2) shwup.rsvp{value: 20 ether}(table);
             vm.stopBroadcast();
         }
 

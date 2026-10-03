@@ -1,8 +1,11 @@
 # ShwUp
 
-**Refundable RSVPs on Arc.** Guests hold a spot with a small USDC deposit and get it back the second
-they're scanned in at the door. People who never show forfeit theirs — split among the people who
-came, or paid to the organizer.
+**Commit. Show up. Get it back.** Guests hold a spot with a small USDC deposit and get it back the
+second they're scanned in at the door. People who never show forfeit theirs — split among the people
+who came, paid to the organizer, or sent to a cause.
+
+Events are the first use. The same contract handles any reservation that should be kept: a
+restaurant table, an appointment, a class — a deposit, a time and a door.
 
 **Live (Arc testnet):** https://shwup.vercel.app · **Contract:** [verified on the Arc explorer](https://explorer.testnet.arc.io/address/0x191e7817E6fAafF2169660e6F13f2f3197ecBC9C?tab=contract)
 
@@ -28,7 +31,20 @@ without costing anyone who shows up — but until now the rails made small depos
 | **Organizer** | Creates an event with a deposit ($2 / $5 / $10 / custom) and chooses where no-show deposits go. Shares a link. |
 | **Guest** | Opens the link, taps **Hold my spot · $5.00**. Gets a ticket with a QR code. |
 | **Door** | Organizer's phone runs **door mode**. Each scan checks the guest in and refunds their deposit — final in under a second, no wallet pop-ups. |
-| **After** | Anyone can settle once check-in closes. No-show deposits are split among attendees (who collect them from their ticket) or paid to the organizer. |
+| **Can't make it** | Before the cutoff, cancel for a full refund. After it, pass the spot on: whoever takes it (even when the event is full) pays the deposit straight back. |
+| **After** | Anyone can settle once check-in closes. No-show deposits are split among attendees (who collect them from their ticket), paid to the organizer, or sent to a beneficiary. |
+| **Host bond** | Optional: the organizer puts money behind their own promise. Cancel, and it's split among everyone holding a spot. |
+
+### One contract, any door
+
+| | Deposit | Cancel until | Back when | No-shows |
+| --- | --- | --- | --- | --- |
+| Community event | $5 | a day before | scanned in | split among people who came |
+| Restaurant table | $20 | 4 hours before | seated | cover the empty table |
+| Appointment | $10 | a day before | checked in | cover the lost slot |
+
+Each is a template in the app (`/app/new?template=meetup|table|appointment`) and the same
+`createEvent` call with different terms.
 
 The moment that matters: the guest's ticket page is open while they're scanned, and it flips by
 itself to **"You're in. +$5.00 is back in your wallet."**
