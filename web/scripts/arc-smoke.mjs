@@ -11,7 +11,7 @@ import { arcTestnet } from "viem/chains";
 import { readFileSync } from "node:fs";
 
 const rpc = process.argv[2] ?? "https://rpc.testnet.arc.io";
-const shwup = process.argv[3] ?? "0xCE1B7D549094B85Dc3A04E5dd83aA1E270244EEC";
+const shwup = process.argv[3] ?? "0x191e7817E6fAafF2169660e6F13f2f3197ecBC9C";
 const abiSrc = readFileSync(new URL("../src/lib/contracts/shwup-abi.ts", import.meta.url), "utf8");
 const abi = JSON.parse(abiSrc.slice(abiSrc.indexOf("["), abiSrc.lastIndexOf("]") + 1));
 
