@@ -14,4 +14,7 @@
 | 2026-10-03 | Full lifecycle pass incl. time-travelled settlement and bonus claim; error/accessibility polish (#7) |
 | 2026-10-03 | Arc testnet deployment, source verified on Blockscout (#9) |
 | 2026-10-03 | Production web deployment: https://shwup.vercel.app |
+| 2026-10-03 | Production audit; live-Arc smoke test in CI (#11) |
+| 2026-10-03 | Contract v2 (details edits, names, self-settling claims), redeployed and verified on testnet (#12, #13) |
+| 2026-10-03 | Names, settings, calendar, map, who's going, organizer workflow, activity, track records, PWA, since-last-visit (#14–#19) |
 | — | Arc mainnet deployment + first real event |

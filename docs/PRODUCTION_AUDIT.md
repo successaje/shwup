@@ -173,3 +173,46 @@ Difficulty: S (≤ half day), M (≤ 1 day), L (> 1 day).
 4. **Organizer workflow** (H3, H4, P1, G2).
 5. **History + trust** (D1, D2, P2).
 6. **Installable** (M1), engineering (E1, E3).
+
+---
+
+## Re-audit after this pass (PRs #11–#19)
+
+### Shipped
+
+| Backlog | What | PR |
+| --- | --- | --- |
+| C1 | Live-Arc smoke test of every money path, in CI | #11 |
+| C2 C3 C4 | Contract v2: editable details, public display names (`rsvpAs`), self-settling claims; redeployed + verified | #12, #13 |
+| C3 P3 D3 | Names on hold-a-spot, guest list, door, ticket; Profile & settings page | #14 |
+| H1 H2 G1 G3 | Add to calendar (2h reminder), map link, time zone, clickable links, who's going, host prompt | #15 |
+| H3 H4 P1 G2 | Edit details, Run it again, remembered defaults, CSV export, invite message | #16 |
+| D1 D2 | Activity history + money summary + show-up record; organizer track record on invites | #17 |
+| M1 | Installable PWA with door-mode install hint | #18 |
+| P2 | New RSVPs since last visit | #19 |
+| H5 E3 | Measured gas copy; incentive limits documented | #11, #12 |
+
+### Scorecard now
+
+| Category | Before | Now | Remaining gap |
+| --- | --- | --- | --- |
+| Product clarity | 8 | 9 | — |
+| UX | 7 | 9 | Getting USDC onto Arc is still outside the app |
+| UI | 8 | 9 | — |
+| Personalization | 3 | 7 | Names, defaults, seen-state are per wallet/browser; no cross-device prefs (by design: no server) |
+| Onboarding | 6 | 7 | Funding a wallet on Arc is the biggest drop-off risk |
+| Mobile quality | 6 | 8 | WalletConnect for non-wallet browsers (needs a Reown project ID) |
+| Performance | 8 | 8 | `useOrganizerEvents` fans out one read per event; fine at today's scale, multicall-batched by wagmi |
+| Reliability | 8 | 9 | Money paths verified on Arc in CI |
+| Security | 7 | 8 | No audit; incentive limits documented |
+| User retention | 3 | 7 | Calendar reminders, activity, track record, run-it-again; no push/email (deliberately serverless) |
+| Growth | 5 | 7 | Invite message, who's going, host prompt; no referral mechanics yet |
+| Accessibility | 7 | 8 | Not tested with a screen reader end to end |
+| **Overall maturity** | **6.5** | **8** | |
+
+### What would still reveal "hackathon project" next to Luma or Partiful
+
+1. **Guests need a funded Arc wallet.** Luma takes an email. → Next: in-app "get USDC on Arc" (Circle Bridge Kit / Gateway) and WalletConnect.
+2. **No reminders beyond the calendar.** → Email/Telegram reminders need a small backend and consent; worth it once there are real users.
+3. **No real usage yet.** → Run the first real event on mainnet; the track record and show-up history only become persuasive with data.
+4. **Single organizer per event.** → Co-hosts (multiple checkers already exist on-chain; needs UI to authorize another person's wallet, not just a door key).
