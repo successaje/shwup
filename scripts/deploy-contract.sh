@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Deploy ShwUp to Arc and print the env vars the web app needs.
+# Deploy ShwUp to Arc, verify its source on the explorer, and print the env vars the web app needs.
 #
 #   ./scripts/deploy-contract.sh arcTestnet <foundry-keystore-account>
 #   ./scripts/deploy-contract.sh arc        <foundry-keystore-account>
@@ -13,8 +13,8 @@ NETWORK="${1:?usage: deploy-contract.sh <arcTestnet|arc> <keystore-account>}"
 ACCOUNT="${2:?usage: deploy-contract.sh <arcTestnet|arc> <keystore-account>}"
 
 case "$NETWORK" in
-  arcTestnet) RPC="${ARC_TESTNET_RPC_URL:-https://rpc.testnet.arc.io}"; CHAIN_ID=5042002 ;;
-  arc)        RPC="${ARC_RPC_URL:-https://rpc.mainnet.arc.io}";        CHAIN_ID=5042 ;;
+  arcTestnet) RPC="${ARC_TESTNET_RPC_URL:-https://rpc.testnet.arc.io}"; CHAIN_ID=5042002; EXPLORER=https://explorer.testnet.arc.io ;;
+  arc)        RPC="${ARC_RPC_URL:-https://rpc.mainnet.arc.io}";        CHAIN_ID=5042;    EXPLORER=https://explorer.arc.io ;;
   *) echo "network must be arcTestnet or arc" >&2; exit 1 ;;
 esac
 
@@ -24,11 +24,16 @@ DEPLOYMENT="deployments/$CHAIN_ID.json"
 ADDRESS=$(node -e "console.log(require('./$DEPLOYMENT').ShwUp)")
 BLOCK=$(node -e "console.log(require('./$DEPLOYMENT').blockNumber)")
 
+# Publish the source on Arc's Blockscout explorer.
+FOUNDRY_DISABLE_NIGHTLY_WARNING=1 forge verify-contract "$ADDRESS" src/ShwUp.sol:ShwUp \
+  --chain-id "$CHAIN_ID" --verifier blockscout --verifier-url "$EXPLORER/api/" --watch
+
 cat <<OUT
 
 Deployed ShwUp on $NETWORK
   address: $ADDRESS
   block:   $BLOCK
+  source:  $EXPLORER/address/$ADDRESS?tab=contract
 
 Web app environment:
   NEXT_PUBLIC_SHWUP_CHAIN=$NETWORK
