@@ -11,7 +11,7 @@ import { arcTestnet } from "viem/chains";
 import { readFileSync } from "node:fs";
 
 const rpc = process.argv[2] ?? "https://rpc.testnet.arc.io";
-const shwup = process.argv[3] ?? "0xD1d6EE0c5309A09Df9ca4c2936956A49cca9eb71";
+const shwup = process.argv[3] ?? "0xCE1B7D549094B85Dc3A04E5dd83aA1E270244EEC";
 const abiSrc = readFileSync(new URL("../src/lib/contracts/shwup-abi.ts", import.meta.url), "utf8");
 const abi = JSON.parse(abiSrc.slice(abiSrc.indexOf("["), abiSrc.lastIndexOf("]") + 1));
 
@@ -67,6 +67,13 @@ const results = [
     from: guest,
     fn: "rsvp",
     args: [EVENT_ID],
+    value: DEPOSIT,
+    stateDiff: eventWords({ startsAt: now + 3600n * 24n, cancelCutoff: now + 3600n * 12n, checkInEndsAt: now + 3600n * 27n, held: 0n }),
+  }),
+  await check("rsvpAs: deposit + public display name", {
+    from: guest,
+    fn: "rsvpAs",
+    args: [EVENT_ID, "Smoke Test"],
     value: DEPOSIT,
     stateDiff: eventWords({ startsAt: now + 3600n * 24n, cancelCutoff: now + 3600n * 12n, checkInEndsAt: now + 3600n * 27n, held: 0n }),
   }),

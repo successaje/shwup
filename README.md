@@ -4,7 +4,7 @@
 they're scanned in at the door. People who never show forfeit theirs — split among the people who
 came, or paid to the organizer.
 
-**Live (Arc testnet):** https://shwup.vercel.app · **Contract:** [verified on the Arc explorer](https://explorer.testnet.arc.io/address/0xD1d6EE0c5309A09Df9ca4c2936956A49cca9eb71?tab=contract)
+**Live (Arc testnet):** https://shwup.vercel.app · **Contract:** [verified on the Arc explorer](https://explorer.testnet.arc.io/address/0xCE1B7D549094B85Dc3A04E5dd83aA1E270244EEC?tab=contract)
 
 ---
 
@@ -179,7 +179,7 @@ vercel build --prod && vercel deploy --prebuilt --prod
 
 | Network | Chain ID | ShwUp |
 | --- | --- | --- |
-| Arc Testnet | 5042002 | [`0xD1d6EE0c5309A09Df9ca4c2936956A49cca9eb71`](https://explorer.testnet.arc.io/address/0xD1d6EE0c5309A09Df9ca4c2936956A49cca9eb71?tab=contract) (verified) |
+| Arc Testnet | 5042002 | [`0xCE1B7D549094B85Dc3A04E5dd83aA1E270244EEC`](https://explorer.testnet.arc.io/address/0xCE1B7D549094B85Dc3A04E5dd83aA1E270244EEC?tab=contract) (verified) |
 | Arc Mainnet | 5042 | _pending_ |
 
 ## Repository
