@@ -48,3 +48,18 @@ export function forgetDoorKey(chainId: number, contract: Address, eventId: bigin
 
 /** Gas sent to a new door key: ~$0.25 covers about a hundred check-ins at Arc's measured ~$0.0025 each. */
 export const DOOR_KEY_FUNDING = 25n * 10n ** 16n;
+
+/** Event ids that have a door key stored in this browser (for this chain + contract). */
+export function listDoorKeyEvents(chainId: number, contract: Address): bigint[] {
+  const prefix = `shwup:door:${chainId}:${contract.toLowerCase()}:`;
+  const ids: bigint[] = [];
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k?.startsWith(prefix)) ids.push(BigInt(k.slice(prefix.length)));
+    }
+  } catch {
+    // storage blocked
+  }
+  return ids.sort((a, b) => (a < b ? 1 : -1));
+}

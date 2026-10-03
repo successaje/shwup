@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import type { Hash, TransactionReceipt } from "viem";
+import { useQueryClient } from "@tanstack/react-query";
 import { useConfig, useConnection, useSwitchChain } from "wagmi";
 import { simulateContract, waitForTransactionReceipt, writeContract } from "wagmi/actions";
 import { chain } from "@/config/chain";
@@ -27,6 +28,7 @@ export function useStagedWrite() {
   const [error, setError] = useState<FriendlyError | null>(null);
   const [result, setResult] = useState<StagedResult | null>(null);
   const busy = useRef(false);
+  const queryClient = useQueryClient();
 
   const run = useCallback(
     async (request: Request): Promise<RunOutcome> => {
@@ -52,6 +54,8 @@ export function useStagedWrite() {
         const r = { hash, finalityMs, receipt };
         setResult(r);
         setStage("done");
+        // Every read (balances, tickets, guest lists) may have changed; refresh them now, not on the next poll.
+        void queryClient.invalidateQueries();
         return { ok: true, ...r };
       } catch (e) {
         console.error(e);
@@ -63,7 +67,7 @@ export function useStagedWrite() {
         busy.current = false;
       }
     },
-    [address, chainId, config, switchChainAsync],
+    [address, chainId, config, queryClient, switchChainAsync],
   );
 
   const reset = useCallback(() => {

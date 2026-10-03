@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, Copy, LogOut } from "lucide-react";
+import { Check, Copy, LogOut, UserRound } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useBalance, useConnection, useDisconnect } from "wagmi";
 import { Button } from "@/components/ui/button";
@@ -84,6 +85,9 @@ function AccountMenu({ address, className }: { address: `0x${string}`; className
             <p className="text-xs text-ink-3">Balance on {chain.name}</p>
             <p className="num mt-0.5 text-xl">{balance ? formatUsd(balance.value) : "—"}</p>
           </div>
+          <MenuLink href="/app/settings" icon={<UserRound className="size-4" />} onNavigate={() => setOpen(false)}>
+            Profile & settings
+          </MenuLink>
           <MenuItem onClick={copy} icon={copied ? <Check className="size-4 text-ok" /> : <Copy className="size-4" />}>
             {copied ? "Copied" : "Copy address"}
           </MenuItem>
@@ -112,6 +116,20 @@ function MenuItem({ onClick, icon, children }: { onClick: () => void; icon: Reac
       {icon}
       {children}
     </button>
+  );
+}
+
+function MenuLink({ href, icon, children, onNavigate }: { href: string; icon: React.ReactNode; children: React.ReactNode; onNavigate: () => void }) {
+  return (
+    <Link
+      role="menuitem"
+      href={href}
+      onClick={onNavigate}
+      className="flex h-10 w-full items-center gap-2.5 rounded-sm px-2.5 text-sm text-ink-2 hover:bg-sunken hover:text-ink"
+    >
+      {icon}
+      {children}
+    </Link>
   );
 }
 

@@ -29,11 +29,13 @@ export function ScanResultCard({ result, deposit }: { result: ScanResult; deposi
         <Icon className={cn("size-5", c.tone === "warn" && "text-warn", c.tone === "bad" && "text-danger")} />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="font-display text-lg leading-tight font-medium">{c.title}</p>
+        <p className="font-display text-lg leading-tight font-medium">
+          {result.outcome === "checkedIn" && result.name ? `${result.name} is in` : c.title}
+        </p>
         <p className={cn("mt-0.5 truncate text-sm", c.tone === "ok" ? "opacity-90" : "text-ink-2")}>
           {result.outcome === "checkedIn"
             ? `${formatUsd(deposit)} returned · final in ${((result.finalityMs ?? 0) / 1000).toFixed(1)}s`
-            : (result.detail ?? (result.holder ? shortAddress(result.holder) : "Try the next one."))}
+            : (result.detail ?? (result.name ?? (result.holder ? shortAddress(result.holder) : "Try the next one.")))}
         </p>
       </div>
       {result.holder && result.outcome === "checkedIn" && <span className="num hidden text-sm opacity-90 sm:inline">{shortAddress(result.holder)}</span>}
@@ -46,7 +48,7 @@ export function ScanFeedItem({ result }: { result: ScanResult }) {
   return (
     <li className="flex items-center gap-3 py-2.5 text-sm">
       <span className={cn("size-2 shrink-0 rounded-full", c.tone === "ok" ? "bg-ok" : c.tone === "warn" ? "bg-warn" : "bg-danger")} />
-      <span className="num w-28 shrink-0 text-ink-2">{result.holder ? shortAddress(result.holder) : "—"}</span>
+      <span className="w-32 shrink-0 truncate text-ink-2">{result.name ?? (result.holder ? <span className="num">{shortAddress(result.holder)}</span> : "—")}</span>
       <span className="truncate text-ink-3">{c.title}</span>
     </li>
   );

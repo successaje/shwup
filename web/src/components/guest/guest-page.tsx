@@ -20,7 +20,7 @@ import { ticketUrl } from "@/domain/ticket-code";
 import { useCheckInReceipt } from "@/hooks/use-check-in-receipt";
 import { useNow } from "@/hooks/use-now";
 import { useOrigin } from "@/hooks/use-origin";
-import { useEvent, useTicket } from "@/hooks/use-shwup";
+import { useEvent, useMyName, useTicket } from "@/hooks/use-shwup";
 import { shortAddress } from "@/lib/address";
 import { formatUsd } from "@/lib/money";
 import { formatWhen } from "@/lib/time";
@@ -47,6 +47,7 @@ export function GuestPage({ id }: { id: bigint }) {
     previous.current = status;
   }, [ticket?.status]);
 
+  const { name: myName } = useMyName(address);
   const view = event ? guestView(event, address ? ticket : undefined, now) : undefined;
   const receipt = useCheckInReceipt(id, address, view?.kind === "arrived");
 
@@ -85,7 +86,9 @@ export function GuestPage({ id }: { id: bigint }) {
           code={showCode ? <QrCode value={ticketUrl(origin, id, address)} label="Your ticket code" className="size-24 shrink-0" /> : undefined}
           footnote={
             view.kind === "holding"
-              ? shortAddress(address!)
+              ? myName
+                ? `${myName} · ${shortAddress(address!)}`
+                : shortAddress(address!)
               : view.kind === "arrived" && view.bonus === "claimed"
                 ? `+ ${formatUsd(event.bonusPerAttendee)} from no-shows`
                 : view.kind === "arrived" && receiptLink

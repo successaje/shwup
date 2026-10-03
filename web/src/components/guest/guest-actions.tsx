@@ -7,11 +7,13 @@ import { useBalance, useConnection } from "wagmi";
 import { TxProgress } from "@/components/tx-progress";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { Field, Input } from "@/components/ui/field";
 import { ConnectDialog } from "@/components/wallet/connect-dialog";
 import { chain, chainKey, fundingUrl } from "@/config/chain";
 import { ForfeitPolicy, type ShwUpEvent } from "@/domain/event";
 import type { GuestView } from "@/domain/guest";
-import { shwupContract } from "@/hooks/use-shwup";
+import { shwupContract, useMyName } from "@/hooks/use-shwup";
+import { validateName } from "@/domain/names";
 import { useStagedWrite } from "@/hooks/use-staged-write";
 import { formatUsd } from "@/lib/money";
 import { formatWhen, relative } from "@/lib/time";
@@ -53,6 +55,10 @@ function HoldSpot({ event, view, onDone }: { event: ShwUpEvent; view: Extract<Gu
   const { data: balance } = useBalance({ address, chainId: chain.id, query: { enabled: !!address } });
   const [connectOpen, setConnectOpen] = useState(false);
   const tx = useStagedWrite();
+  const { name: savedName } = useMyName(address);
+  const [draft, setDraft] = useState<string | null>(null); // null = untouched, show the saved name
+  const name = (draft ?? savedName).trim();
+  const nameError = validateName(name);
   const short = balance !== undefined && balance.value < event.deposit;
 
   if (view.full) {
@@ -61,7 +67,12 @@ function HoldSpot({ event, view, onDone }: { event: ShwUpEvent; view: Extract<Gu
 
   const hold = async () => {
     if (!address) return setConnectOpen(true);
-    const r = await tx.run({ ...shwupContract, functionName: "rsvp", args: [event.id], value: event.deposit });
+    if (nameError) return;
+    // One transaction either way: set/keep the name alongside holding the spot.
+    const r =
+      name && name !== savedName
+        ? await tx.run({ ...shwupContract, functionName: "rsvpAs", args: [event.id, name], value: event.deposit })
+        : await tx.run({ ...shwupContract, functionName: "rsvp", args: [event.id], value: event.deposit });
     if (r.ok) {
       toast.success("Your spot is held", {
         description: `Final on Arc in ${(r.finalityMs / 1000).toFixed(1)}s. Bring your ticket to the door.`,
@@ -72,7 +83,26 @@ function HoldSpot({ event, view, onDone }: { event: ShwUpEvent; view: Extract<Gu
 
   return (
     <div className="flex flex-col gap-4">
-      <Button size="lg" block loading={tx.busy} onClick={hold} disabled={short}>
+      {address && (
+        <Field
+          label="Your name"
+          optional
+          error={nameError ?? undefined}
+          hint={savedName && draft === null ? "Saved from your last RSVP." : "Shown to the organizer and on the guest list. Public on Arc."}
+        >
+          {(p) => (
+            <Input
+              {...p}
+              value={draft ?? savedName}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="So the door knows who you are"
+              autoComplete="name"
+              maxLength={40}
+            />
+          )}
+        </Field>
+      )}
+      <Button size="lg" block loading={tx.busy} onClick={hold} disabled={short || !!nameError}>
         {view.rejoin ? "Hold my spot again" : "Hold my spot"} · {formatUsd(event.deposit)}
       </Button>
       {short && (
