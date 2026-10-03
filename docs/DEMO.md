@@ -24,6 +24,17 @@ Add, in order:
 - **Trust** (15s): the organizer never holds deposits — show the contract on the explorer; deposits
   only go back to guests or settle as no-shows.
 
+## The bigger idea (30s)
+
+ShwUp isn't an RSVP app; it's a commitment that settles itself. Show three on the same contract:
+
+1. **Community event** — `/app/new?template=meetup`: $5, scan in, instant refund, no-shows pay the people who came.
+2. **Restaurant table** — `?template=table`: $20 for one booking, back when seated, late cancel covers the table.
+3. **Appointment** — `?template=appointment`: $10 for one slot, back at check-in.
+
+Then the two things a plain deposit can't do: a guest past the cutoff **passes their spot on** (the
+taker pays them back, even when it's full), and a host's **bond** that guests collect if the host cancels.
+
 ## What to have ready
 
 - Event created ~30 minutes before the demo (check-in opens 1 hour before start).
