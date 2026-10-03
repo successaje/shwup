@@ -11,8 +11,8 @@ next-env.d.ts
 # foundry
 contracts/out/
 contracts/cache/
-contracts/broadcast/*/31337/
-contracts/broadcast/**/dry-run/
+# broadcast logs are local; addresses are recorded in contracts/deployments/
+contracts/broadcast/
 
 # env
 .env
