@@ -1,11 +1,11 @@
 import { CalendarDays, MapPin } from "lucide-react";
 import type { ReactNode } from "react";
 import type { EventDetails } from "@/domain/event";
+import type { StubState } from "@/domain/guest";
 import { cn } from "@/lib/cn";
 import { formatUsd } from "@/lib/money";
 import { formatWhen } from "@/lib/time";
 
-export type StubState = "preview" | "held" | "checkedIn" | "released" | "noShow" | "cancelled";
 
 const STATUS: Record<StubState, { label: string; tone: string }> = {
   preview: { label: "Deposit", tone: "text-ink-2" },
@@ -78,18 +78,23 @@ export function TicketStub({
             <p className={cn("num mt-0.5 text-3xl", status.tone)}>{deposit !== undefined ? formatUsd(deposit) : "—"}</p>
             {footnote && <div className="mt-2 text-xs text-ink-2">{footnote}</div>}
           </div>
-          {code ?? <CodePlaceholder dim={state === "preview"} />}
+          {state === "checkedIn" ? <Stamp /> : (code ?? <CodePlaceholder dim={state === "preview"} />)}
         </div>
       </div>
 
-      {state === "checkedIn" && (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute top-6 right-5 animate-stamp rounded-sm border-2 border-stamp px-2.5 py-1 font-display text-sm font-bold tracking-[0.08em] text-stamp uppercase opacity-90"
-        >
-          Showed up
-        </div>
-      )}
+    </div>
+  );
+}
+
+/** Where the code was: the door stamp. */
+function Stamp() {
+  return (
+    <div className="grid size-22 shrink-0 place-items-center" aria-label="Checked in">
+      <span className="animate-stamp rounded-sm border-2 border-stamp px-2 py-1 text-center font-display text-xs leading-tight font-bold tracking-[0.08em] text-stamp uppercase">
+        Showed
+        <br />
+        up
+      </span>
     </div>
   );
 }
