@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { GuestPage } from "@/components/guest/guest-page";
 import { SiteHeader } from "@/components/layout/site-header";
 import { readEventForMetadata } from "@/lib/server/read-event";
+import { walletAvailability } from "@/lib/server/wallet-config";
 import { formatUsd } from "@/lib/money";
 import { formatWhen } from "@/lib/time";
 
@@ -27,7 +28,7 @@ export default async function EventPage({ params }: PageProps<"/e/[id]">) {
       <SiteHeader />
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 pt-8 pb-24 sm:px-6 sm:pt-14">
         <Suspense>
-          <GuestPage id={BigInt(id)} />
+          <GuestPage id={BigInt(id)} wallets={walletAvailability()} />
         </Suspense>
       </main>
     </>

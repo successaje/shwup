@@ -27,9 +27,10 @@ import { useOrigin } from "@/hooks/use-origin";
 import { useEvent, useMyName, useOffers, useTicket } from "@/hooks/use-shwup";
 import { shortAddress } from "@/lib/address";
 import { formatUsd } from "@/lib/money";
+import type { WalletAvailability } from "@/lib/server/wallet-config";
 import { formatWhen } from "@/lib/time";
 
-export function GuestPage({ id }: { id: bigint }) {
+export function GuestPage({ id, wallets }: { id: bigint; wallets: WalletAvailability }) {
   const now = useNow(5_000);
   const origin = useOrigin();
   const { address } = useConnection();
@@ -113,7 +114,7 @@ export function GuestPage({ id }: { id: bigint }) {
           ) : isOrganizer && view.kind === "invite" ? (
             <p className="text-sm text-ink-2">This is what your guests see. They&apos;ll get a “Hold my spot” button here.</p>
           ) : (
-            <GuestActions event={event} view={view} onChange={refresh} />
+            <GuestActions event={event} view={view} onChange={refresh} wallets={wallets} />
           )}
         </div>
       </div>

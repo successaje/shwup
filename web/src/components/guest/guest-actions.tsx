@@ -6,6 +6,7 @@ import { zeroAddress } from "viem";
 import { toast } from "sonner";
 import { useBalance, useConnection } from "wagmi";
 import { AddToCalendar } from "@/components/guest/add-to-calendar";
+import { AddToWallet } from "@/components/guest/add-to-wallet";
 import { TxProgress } from "@/components/tx-progress";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -19,15 +20,26 @@ import { shwupContract, useMyName } from "@/hooks/use-shwup";
 import { validateName } from "@/domain/names";
 import { useStagedWrite } from "@/hooks/use-staged-write";
 import { formatUsd } from "@/lib/money";
+import type { WalletAvailability } from "@/lib/server/wallet-config";
 import { formatWhen, relative } from "@/lib/time";
 
 /** The one thing a guest can do right now, plus what it means for their money. */
-export function GuestActions({ event, view, onChange }: { event: ShwUpEvent; view: GuestView; onChange: () => void }) {
+export function GuestActions({
+  event,
+  view,
+  onChange,
+  wallets = { apple: false, google: false },
+}: {
+  event: ShwUpEvent;
+  view: GuestView;
+  onChange: () => void;
+  wallets?: WalletAvailability;
+}) {
   switch (view.kind) {
     case "invite":
       return <HoldSpot event={event} view={view} onDone={onChange} />;
     case "holding":
-      return <Holding event={event} view={view} onChange={onChange} />;
+      return <Holding event={event} view={view} onChange={onChange} wallets={wallets} />;
     case "arrived":
       return <Arrived event={event} bonus={view.bonus} onChange={onChange} />;
     case "missed":
@@ -150,7 +162,18 @@ function HoldSpot({ event, view, onDone }: { event: ShwUpEvent; view: Extract<Gu
   );
 }
 
-function Holding({ event, view, onChange }: { event: ShwUpEvent; view: Extract<GuestView, { kind: "holding" }>; onChange: () => void }) {
+function Holding({
+  event,
+  view,
+  onChange,
+  wallets,
+}: {
+  event: ShwUpEvent;
+  view: Extract<GuestView, { kind: "holding" }>;
+  onChange: () => void;
+  wallets: WalletAvailability;
+}) {
+  const { address } = useConnection();
   const [open, setOpen] = useState(false);
   const tx = useStagedWrite();
   const offerTx = useStagedWrite();
@@ -186,6 +209,7 @@ function Holding({ event, view, onChange }: { event: ShwUpEvent; view: Extract<G
           moment you&apos;re scanned in.
         </p>
       )}
+      {address && <AddToWallet eventId={event.id} holder={address} wallets={wallets} />}
       <AddToCalendar event={event} />
       {view.offered && (
         <div className="flex flex-col gap-3 rounded-md border border-line bg-surface px-4 py-3 text-sm">
