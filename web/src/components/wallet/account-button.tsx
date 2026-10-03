@@ -1,7 +1,7 @@
 "use client";
 
 import { Check, Copy, LogOut } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useBalance, useConnection, useDisconnect } from "wagmi";
 import { Button } from "@/components/ui/button";
 import { ConnectDialog } from "@/components/wallet/connect-dialog";
@@ -10,11 +10,16 @@ import { cn } from "@/lib/cn";
 import { formatUsd } from "@/lib/money";
 import { shortAddress } from "@/lib/address";
 
+const noop = () => () => {};
+
 export function AccountButton({ className }: { className?: string }) {
   const { address, status } = useConnection();
   const [connectOpen, setConnectOpen] = useState(false);
+  // Wallet state only exists in the browser; render the placeholder until hydrated so the server
+  // HTML and the first client render always agree.
+  const hydrated = useSyncExternalStore(noop, () => true, () => false);
 
-  if (status === "reconnecting" || status === "connecting") {
+  if (!hydrated || status === "reconnecting" || status === "connecting") {
     return <div className={cn("h-9 w-32 animate-pulse rounded-sm bg-sunken", className)} aria-label="Connecting wallet" />;
   }
 
