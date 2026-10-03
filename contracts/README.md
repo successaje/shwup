@@ -17,10 +17,13 @@ Ticket (per attendee, per event):
 
 | From | Action | To | Money |
 | --- | --- | --- | --- |
-| None / Released | `rsvp` (payable, exact deposit) | Held | deposit in |
+| None / Released / Transferred | `rsvp` (payable, exact deposit) | Held | deposit in |
+| Held | `offerSpot(to)` (until check-in closes; `to` = 0 for anyone) | Held, offered | — |
+| Held, offered | `withdrawOffer` | Held | — |
+| Held, offered | `takeSpot(from)` by the taker (payable, exact deposit) | holder → Transferred, taker → Held | taker's deposit → holder |
 | Held | `cancelRsvp` (before `cancelCutoff`) | Released | deposit → attendee |
 | Held | `checkIn` (organizer or checker) | CheckedIn | deposit → attendee |
-| Held | `claim` after `cancelEvent` | Released | deposit → attendee |
+| Held | `claim` after `cancelEvent` | Released | deposit + bond share → attendee |
 | CheckedIn | `claim` after check-in closes, Attendees policy (settles first if nobody has) | CheckedIn (+bonusClaimed) | share of forfeits → attendee |
 | Held | `settle` | Held (no-show) | deposit forfeited |
 
@@ -29,6 +32,24 @@ Forfeits at `settle`:
 - `ForfeitPolicy.Attendees` — split evenly among checked-in attendees (pull via `claim`);
   integer-division dust goes to the organizer. If nobody checked in, everything goes to the organizer.
 - `ForfeitPolicy.Organizer` — paid to the organizer.
+- `ForfeitPolicy.Beneficiary` — paid to the `beneficiary` address fixed at creation (a charity,
+  community fund, next event's budget). Must be zero for the other policies.
+
+## Hand-overs
+
+A guest who can't come can `offerSpot` — to anyone, or to one named address. Whoever takes it pays
+exactly the deposit, which goes straight to the person leaving; the event's `held` count doesn't
+change, so it works when the event is full and after the cancellation cutoff. Because the price is
+fixed at the deposit, spots can't be resold for profit. `getOffers(id, offset, limit)` lists open
+offers for a page of attendees. Offers are cleared automatically by check-in, cancellation or claim.
+
+## Organizer bond
+
+`createEvent` is payable: any value sent is the organizer's bond (`BondPosted`). If the event goes
+ahead, settlement returns it to the organizer (`BondReturned`). If the organizer cancels, it's split
+equally among the guests holding spots at that moment (`bondPerGuest`, collected by `claim` with
+their deposit); integer-division dust, or the whole bond when nobody holds a spot, goes back to the
+organizer.
 
 ## Profile and details
 
@@ -41,10 +62,12 @@ Forfeits at `settle`:
 ## Invariants
 
 - **Solvency** — the contract balance equals exactly what it owes (held deposits of unsettled
-  events, refunds in cancelled events, unclaimed bonuses, credits). Fuzzed in
+  events, refunds plus bond shares in cancelled events, bonds of live events, unclaimed bonuses,
+  credits), including across hand-overs. Fuzzed in
   [`ShwUp.invariant.t.sol`](test/ShwUp.invariant.t.sol).
-- A deposit leaves only to the attendee who paid it, to checked-in attendees as a bonus, or to the
-  organizer as forfeits. The organizer can never withdraw held deposits.
+- A deposit leaves only to the attendee who paid it (refund, or from the person taking their spot),
+  to checked-in attendees as a bonus, or as forfeits to the organizer or the event's beneficiary.
+  The organizer can never withdraw held deposits.
 - Each ticket is refunded at most once; a bonus is claimed at most once.
 - Deposits can't be locked forever: the check-in window is capped at 2 days and anyone can settle.
 
