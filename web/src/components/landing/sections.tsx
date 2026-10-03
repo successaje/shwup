@@ -14,6 +14,9 @@ export function LandingNav() {
         <a href="#how" className="hover:text-ink">
           How it works
         </a>
+        <a href="#uses" className="hover:text-ink">
+          What it&apos;s for
+        </a>
         <a href="#arc" className="hover:text-ink">
           Why it works now
         </a>
@@ -32,13 +35,13 @@ export function Hero() {
   return (
     <section className="mx-auto grid w-full max-w-6xl items-center gap-14 px-4 pt-10 pb-20 sm:px-6 md:grid-cols-[1.1fr_1fr] md:pt-20 md:pb-28">
       <div>
-        <p className="text-sm font-medium text-stamp">Refundable RSVPs, on Arc</p>
+        <p className="text-sm font-medium text-stamp">RSVPs that mean it, on Arc</p>
         <h1 className="mt-4 font-display text-[2.75rem] leading-[1.02] font-bold tracking-[-0.035em] text-balance sm:text-5xl lg:text-[4.25rem]">
-          RSVPs that mean it.
+          Commit. Show&nbsp;up. Get&nbsp;it&nbsp;back.
         </h1>
         <p className="mt-6 max-w-md text-lg leading-relaxed text-ink-2">
-          Guests hold their spot with a $5 deposit. They get it back the second they&apos;re scanned in at the door.
-          No-shows don&apos;t.
+          Guests hold their spot with a $5 deposit and get it back the second they&apos;re scanned in. No-shows
+          don&apos;t — their deposits go to the people who came.
         </p>
         <div className="mt-9 flex flex-wrap items-center gap-3">
           <ButtonLink href="/app/new" size="lg" icon={<ArrowRight className="size-4" />} className="flex-row-reverse">
@@ -110,6 +113,78 @@ export function HowItWorks() {
   );
 }
 
+const USES = [
+  {
+    key: "meetup",
+    title: "Community event",
+    example: "Arc Builders Night",
+    terms: [
+      ["Deposit", "$5"],
+      ["Cancel", "Up to a day before"],
+      ["Back", "When you're scanned in"],
+      ["No-shows", "Split among people who came"],
+    ],
+  },
+  {
+    key: "table",
+    title: "Restaurant table",
+    example: "Table for 4, Saturday 8 PM",
+    terms: [
+      ["Deposit", "$20"],
+      ["Cancel", "Up to 4 hours before"],
+      ["Back", "When you're seated"],
+      ["No-shows", "Cover the empty table"],
+    ],
+  },
+  {
+    key: "appointment",
+    title: "Appointment",
+    example: "Consultation, Tuesday 3 PM",
+    terms: [
+      ["Deposit", "$10"],
+      ["Cancel", "Up to a day before"],
+      ["Back", "When you check in"],
+      ["No-shows", "Cover the lost slot"],
+    ],
+  },
+] as const;
+
+export function Uses() {
+  return (
+    <section id="uses" className="mx-auto max-w-6xl scroll-mt-8 px-4 pb-20 sm:px-6 md:pb-28">
+      <div className="max-w-2xl">
+        <h2 className="font-display text-3xl font-medium tracking-tight text-balance sm:text-4xl">One contract, any door.</h2>
+        <p className="mt-4 leading-relaxed text-ink-2 md:text-lg">
+          A meetup, a dinner booking and a consultation are the same promise: <em>I&apos;ll be there.</em> ShwUp holds
+          the deposit and releases it when the door confirms you came. Only the terms change.
+        </p>
+      </div>
+      <ul className="mt-12 grid gap-4 md:grid-cols-3">
+        {USES.map((u) => (
+          <li key={u.key} className="flex flex-col rounded-lg border border-line bg-surface p-6">
+            <p className="text-xs font-medium tracking-wide text-stamp uppercase">{u.title}</p>
+            <p className="mt-2 font-display text-lg font-medium tracking-tight">{u.example}</p>
+            <dl className="mt-5 flex flex-col gap-2 border-t border-dashed border-line-strong pt-4 text-sm">
+              {u.terms.map(([k, v]) => (
+                <div key={k} className="flex justify-between gap-4">
+                  <dt className="text-ink-3">{k}</dt>
+                  <dd className="text-right">{v}</dd>
+                </div>
+              ))}
+            </dl>
+            <Link
+              href={`/app/new?template=${u.key}`}
+              className="mt-6 inline-flex items-center gap-1 self-start text-sm font-medium underline-offset-4 hover:underline"
+            >
+              Start one <ArrowRight className="size-3.5" />
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
 export function NoShowMath() {
   return (
     <section className="mx-auto max-w-6xl px-4 pb-20 sm:px-6 md:pb-28">
@@ -117,8 +192,9 @@ export function NoShowMath() {
         <div>
           <h2 className="font-display text-2xl font-medium tracking-tight sm:text-3xl">Showing up pays.</h2>
           <p className="mt-3 leading-relaxed text-ink-2">
-            You choose where no-show deposits go. For meetups, split them among the people who came. For classes and
-            appointments, keep them to cover the empty seat.
+            You choose where no-show deposits go: split among the people who came, kept to cover the empty seat, or sent
+            to a cause. Guests who can&apos;t make it can pass their spot to someone else, who pays them back. Hosts can
+            put up a bond of their own that guests collect if the event is cancelled.
           </p>
         </div>
         <dl className="num grid grid-cols-2 gap-px overflow-hidden rounded-md border border-line bg-line text-sm">
@@ -200,6 +276,14 @@ const FAQ: { q: string; a: ReactNode }[] = [
     a: "Yes, until the cancellation cutoff the organizer set — usually 24 hours before. You get the full deposit back immediately.",
   },
   {
+    q: "What if I can't make it after the cutoff?",
+    a: "Pass your spot on. Anyone who opens the invite — even when the event is full — can take it, and their deposit goes straight to you. Until someone does, the spot is still yours.",
+  },
+  {
+    q: "What if the host cancels?",
+    a: "Every deposit becomes claimable in full. If the host put up a bond, it's split among everyone who held a spot, and you collect your share with your deposit.",
+  },
+  {
     q: "Can the organizer keep my deposit if I came?",
     a: "No. The contract only lets a deposit go back to the guest who paid it, or be forfeited if they never checked in. If the organizer cancels, every deposit is claimable in full.",
   },
@@ -249,7 +333,7 @@ export function Footer() {
   return (
     <footer className="border-t border-line">
       <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-8 text-sm text-ink-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <p>ShwUp — refundable RSVPs on Arc.</p>
+        <p>ShwUp — commit, show up, get it back. On Arc.</p>
         <div className="flex gap-5">
           <Link href="/app" className="hover:text-ink">
             Your events

@@ -9,6 +9,7 @@ const HOUR = 3_600_000;
 export const CANCEL_OPTIONS = [
   { value: "168", label: "Up to 1 week before" },
   { value: "24", label: "Up to 24 hours before" },
+  { value: "4", label: "Up to 4 hours before" },
   { value: "2", label: "Up to 2 hours before" },
   { value: "0", label: "Any time before it starts" },
   { value: "none", label: "No cancellations" },
@@ -163,10 +164,10 @@ function closest<T extends string>(hours: number, options: readonly { value: T }
   return options.reduce((best, o) => (Math.abs(numeric(o.value) - hours) < Math.abs(numeric(best.value) - hours) ? o : best)).value;
 }
 
-/** Settings an organizer reuses from event to event. */
+/** Settings an organizer reuses from event to event. The bond is deliberately not one: posting money should be a choice each time. */
 export type OrganizerDefaults = Pick<
   CreateEventForm,
-  "location" | "deposit" | "capacity" | "cancel" | "doors" | "forfeit" | "beneficiary" | "cause" | "bond"
+  "location" | "deposit" | "capacity" | "cancel" | "doors" | "forfeit" | "beneficiary" | "cause"
 >;
 
 export function defaultsFromForm(form: CreateEventForm): OrganizerDefaults {
@@ -179,13 +180,13 @@ export function defaultsFromForm(form: CreateEventForm): OrganizerDefaults {
     forfeit: form.forfeit,
     beneficiary: form.beneficiary.trim(),
     cause: form.cause.trim(),
-    bond: form.bond,
   };
 }
 
 /** A new form that starts from what this organizer did last time. */
 export function formWithDefaults(defaults: Partial<OrganizerDefaults> | null, now = new Date()): CreateEventForm {
-  return { ...defaultForm(now), ...(defaults ?? {}) };
+  // Older saved defaults may still carry a bond; never prefill one.
+  return { ...defaultForm(now), ...(defaults ?? {}), bond: "" };
 }
 
 /**

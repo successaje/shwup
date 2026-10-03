@@ -1,4 +1,4 @@
-import { Faq, FinalCta, Footer, Hero, HowItWorks, LandingNav, NoShowMath, Problem, WhyArc } from "@/components/landing/sections";
+import { Faq, FinalCta, Footer, Hero, HowItWorks, LandingNav, NoShowMath, Problem, Uses, WhyArc } from "@/components/landing/sections";
 
 export default function Landing() {
   return (
@@ -8,6 +8,7 @@ export default function Landing() {
         <Hero />
         <Problem />
         <HowItWorks />
+        <Uses />
         <NoShowMath />
         <WhyArc />
         <Faq />
