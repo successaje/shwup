@@ -59,3 +59,10 @@ export function toFriendlyError(error: unknown): FriendlyError {
   }
   return { kind: "unknown", title: "Something went wrong", detail: "Nothing was sent. Try again in a moment.", fundsSafe: true };
 }
+
+/** True when a read failed because the event doesn't exist (vs. the network being down). */
+export function isNotFound(error: unknown): boolean {
+  if (!(error instanceof BaseError)) return false;
+  const revert = error.walk((e) => e instanceof ContractFunctionRevertedError);
+  return revert instanceof ContractFunctionRevertedError && revert.data?.errorName === "EventNotFound";
+}

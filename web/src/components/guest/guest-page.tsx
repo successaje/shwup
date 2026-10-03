@@ -10,8 +10,8 @@ import { TicketStub } from "@/components/event/ticket-stub";
 import { ArrivalBanner } from "@/components/guest/arrival-banner";
 import { DoorCheckInBanner } from "@/components/guest/door-check-in-banner";
 import { GuestActions } from "@/components/guest/guest-actions";
+import { LoadError } from "@/components/load-error";
 import { QrCode } from "@/components/qr-code";
-import { ButtonLink } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { explorerUrl } from "@/config/chain";
 import { ForfeitPolicy, TicketStatus, type ShwUpEvent } from "@/domain/event";
@@ -51,17 +51,7 @@ export function GuestPage({ id }: { id: bigint }) {
   const receipt = useCheckInReceipt(id, address, view?.kind === "arrived");
 
   if (isLoading) return <GuestSkeleton />;
-  if (error || !event || !view) {
-    return (
-      <div className="mx-auto flex max-w-md flex-col items-start gap-4 py-10">
-        <h1 className="font-display text-2xl font-medium tracking-tight">Event not found</h1>
-        <p className="text-sm text-ink-2">The link may be wrong, or the event lives on another network.</p>
-        <ButtonLink href="/" variant="secondary">
-          What is ShwUp?
-        </ButtonLink>
-      </div>
-    );
-  }
+  if (error || !event || !view) return <LoadError error={error} onRetry={() => refetchEvent()} backHref="/" />;
 
   const refresh = () => {
     refetchEvent();
@@ -96,7 +86,9 @@ export function GuestPage({ id }: { id: bigint }) {
           footnote={
             view.kind === "holding"
               ? shortAddress(address!)
-              : view.kind === "arrived" && receiptLink
+              : view.kind === "arrived" && view.bonus === "claimed"
+                ? `+ ${formatUsd(event.bonusPerAttendee)} from no-shows`
+                : view.kind === "arrived" && receiptLink
                 ? (
                     <a href={receiptLink} target="_blank" rel="noreferrer" className="inline-flex items-center gap-0.5 hover:text-ink">
                       Refund receipt <ArrowUpRight className="size-3" />
