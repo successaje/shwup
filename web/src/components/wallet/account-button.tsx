@@ -68,6 +68,7 @@ function AccountMenu({ address, className }: { address: `0x${string}`; className
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
         aria-haspopup="menu"
+        aria-label={`Wallet ${shortAddress(address)}`}
         className="flex h-9 items-center gap-2 rounded-sm border border-line-strong bg-surface pr-3 pl-2 text-sm transition-colors hover:border-ink-3"
       >
         <Avatar address={address} />
@@ -86,7 +87,13 @@ function AccountMenu({ address, className }: { address: `0x${string}`; className
           <MenuItem onClick={copy} icon={copied ? <Check className="size-4 text-ok" /> : <Copy className="size-4" />}>
             {copied ? "Copied" : "Copy address"}
           </MenuItem>
-          <MenuItem onClick={() => disconnect()} icon={<LogOut className="size-4" />}>
+          <MenuItem
+            onClick={() => {
+              setOpen(false);
+              disconnect();
+            }}
+            icon={<LogOut className="size-4" />}
+          >
             Disconnect
           </MenuItem>
         </div>
