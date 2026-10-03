@@ -11,6 +11,7 @@ import { ArrivalBanner } from "@/components/guest/arrival-banner";
 import { DoorCheckInBanner } from "@/components/guest/door-check-in-banner";
 import { GuestActions } from "@/components/guest/guest-actions";
 import { WhosGoing } from "@/components/guest/whos-going";
+import { OrganizerRecord } from "@/components/guest/organizer-record";
 import { Linkified } from "@/components/linkified";
 import { mapsUrl } from "@/domain/calendar";
 import { LoadError } from "@/components/load-error";
@@ -168,9 +169,11 @@ function EventAbout({ event }: { event: ShwUpEvent }) {
           </Step>
         </ol>
         <p className="mt-6 text-xs text-ink-3">
-          {event.capacity > 0 ? `${event.held} of ${event.capacity} spots held · ` : `${event.held} spots held · `}
-          Organized by <span className="num">{shortAddress(event.organizer)}</span>
+          {event.capacity > 0 ? `${event.held} of ${event.capacity} spots held` : `${event.held} spots held`}
         </p>
+        <div className="mt-2">
+          <OrganizerRecord event={event} />
+        </div>
       </section>
     </div>
   );

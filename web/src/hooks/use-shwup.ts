@@ -139,3 +139,21 @@ export function useMyName(address: Address | undefined) {
   });
   return { ...query, name: query.data?.trim() ?? "" };
 }
+
+/** Every event an organizer has created, for their public track record. */
+export function useOrganizerEvents(organizer: Address | undefined) {
+  const ids = useReadContract({
+    ...contract,
+    functionName: "eventsOrganizedBy",
+    args: [organizer ?? zeroAddress],
+    query: { enabled: isConfigured && !!organizer, staleTime: 60_000 },
+  });
+  const list = ids.data ?? [];
+  const details = useReadContracts({
+    contracts: list.map((id) => ({ ...contract, functionName: "getEvent", args: [id] }) as const),
+    allowFailure: false,
+    query: { enabled: list.length > 0, staleTime: 60_000 },
+  });
+  const events = details.data?.map((raw, i) => toShwUpEvent(list[i], raw));
+  return { events, isLoading: ids.isLoading || (list.length > 0 && details.isLoading) };
+}
