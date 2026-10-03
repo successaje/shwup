@@ -6,6 +6,7 @@ import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import { useConnection } from "wagmi";
 import { CameraScanner } from "@/components/door/camera-scanner";
+import { LoadError } from "@/components/load-error";
 import { ScanFeedItem, ScanResultCard } from "@/components/door/scan-result-card";
 import { TxProgress } from "@/components/tx-progress";
 import { Button } from "@/components/ui/button";
@@ -23,10 +24,10 @@ import { formatTime, relative } from "@/lib/time";
 
 export function DoorMode({ id }: { id: bigint }) {
   const { address, status } = useConnection();
-  const { event, isLoading, error } = useEvent(id, { live: true });
+  const { event, isLoading, error, refetch } = useEvent(id, { live: true });
 
   if (isLoading || status === "reconnecting") return <Skeleton className="aspect-square max-w-md" />;
-  if (error || !event) return <Notice title="Event not found" body="The link may be wrong, or the event is on another network." />;
+  if (error || !event) return <LoadError error={error} onRetry={() => refetch()} />;
   if (!address) return <ConnectPrompt title="Door mode" body="Connect the organizer wallet to set up this device for check-in." />;
   if (address.toLowerCase() !== event.organizer.toLowerCase()) {
     return <Notice title="Organizer only" body="Door mode checks guests in and refunds deposits, so only the wallet that created this event can run it. Switch wallets to continue." />;

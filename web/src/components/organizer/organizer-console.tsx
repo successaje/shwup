@@ -8,6 +8,7 @@ import { PhaseLabel } from "@/components/event/phase-label";
 import { AttendeeList } from "@/components/organizer/attendee-list";
 import { CancelEventCard, SettleCard } from "@/components/organizer/lifecycle-cards";
 import { SharePanel } from "@/components/organizer/share-panel";
+import { LoadError } from "@/components/load-error";
 import { ButtonLink } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConnectPrompt } from "@/components/wallet/require-wallet";
@@ -25,7 +26,7 @@ export function OrganizerConsole({ id }: { id: bigint }) {
   const justCreated = useSearchParams().get("created") === "1";
 
   if (isLoading || status === "reconnecting") return <ConsoleSkeleton />;
-  if (error || !event) return <NotFound />;
+  if (error || !event) return <LoadError error={error} onRetry={() => refetch()} />;
 
   if (!address) {
     return (
@@ -147,18 +148,6 @@ function ConsoleSkeleton() {
         <Skeleton className="h-24" />
         <Skeleton className="h-48" />
       </div>
-    </div>
-  );
-}
-
-function NotFound() {
-  return (
-    <div className="flex max-w-md flex-col items-start gap-4">
-      <h1 className="font-display text-2xl font-medium tracking-tight">Event not found</h1>
-      <p className="text-sm text-ink-2">The link may be wrong, or the event lives on another network.</p>
-      <ButtonLink href="/app" variant="secondary">
-        Back to your events
-      </ButtonLink>
     </div>
   );
 }
