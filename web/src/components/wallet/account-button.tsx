@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Copy, LogOut, UserRound } from "lucide-react";
+import { Check, Copy, History, LogOut, UserRound } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useBalance, useConnection, useDisconnect } from "wagmi";
@@ -85,6 +85,9 @@ function AccountMenu({ address, className }: { address: `0x${string}`; className
             <p className="text-xs text-ink-3">Balance on {chain.name}</p>
             <p className="num mt-0.5 text-xl">{balance ? formatUsd(balance.value) : "—"}</p>
           </div>
+          <MenuLink href="/app/activity" icon={<History className="size-4" />} onNavigate={() => setOpen(false)}>
+            Activity
+          </MenuLink>
           <MenuLink href="/app/settings" icon={<UserRound className="size-4" />} onNavigate={() => setOpen(false)}>
             Profile & settings
           </MenuLink>
