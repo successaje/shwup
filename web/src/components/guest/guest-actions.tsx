@@ -316,7 +316,9 @@ function Arrived({ event, bonus, onChange }: { event: ShwUpEvent; bonus: Extract
 }
 
 function ClaimRefund({ event, onDone, reason = "cancelled" }: { event: ShwUpEvent; onDone: () => void; reason?: "cancelled" | "doorNeverOpened" }) {
-  const amount = reason === "cancelled" ? event.deposit + event.bondPerGuest : event.deposit;
+  // Nobody checked in: the bond is split like a cancellation; before settlement, preview the split.
+  const bondShare = event.settled || event.cancelled ? event.bondPerGuest : event.held > 0 ? event.bond / BigInt(event.held) : 0n;
+  const amount = event.deposit + bondShare;
   const tx = useStagedWrite();
   const claim = async () => {
     const r = await tx.run({ ...shwupContract, functionName: "claim", args: [event.id] });
@@ -331,7 +333,8 @@ function ClaimRefund({ event, onDone, reason = "cancelled" }: { event: ShwUpEven
         </Note>
       ) : (
         <Note title="Nobody was checked in">
-          Check-in closed without anyone scanned in, so nobody forfeits anything. Your full deposit is waiting for you.
+          Check-in closed without anyone scanned in, so nobody forfeits anything. Your full deposit is waiting for you
+          {bondShare > 0n ? `, plus ${formatUsd(bondShare)} from the host's bond` : ""}.
         </Note>
       )}
       <Button size="lg" block loading={tx.busy} onClick={claim}>

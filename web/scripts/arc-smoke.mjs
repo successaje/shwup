@@ -107,7 +107,7 @@ const results = [
     contractBalance: DEPOSIT,
     stateDiff: [...eventWords({ startsAt: now + 600n, cancelCutoff: now, checkInEndsAt: now + 3600n * 3n, held: 1n }), ticket(1)],
   }),
-  await check("settle: forfeit paid to organizer", {
+  await check("settle: forfeit credited to organizer", {
     from: guest,
     fn: "settle",
     args: [EVENT_ID],
@@ -129,7 +129,7 @@ const results = [
     contractBalance: DEPOSIT,
     stateDiff: [...eventWords({ startsAt: now + 3600n, cancelCutoff: now - 60n, checkInEndsAt: now + 3600n * 4n, held: 1n }), ticket(1, { offered: true, who: leaver })],
   }),
-  await check("settle: forfeit paid to beneficiary", {
+  await check("settle: forfeit credited to beneficiary", {
     from: guest,
     fn: "settle",
     args: [EVENT_ID],
@@ -142,6 +142,13 @@ const results = [
     args: [EVENT_ID],
     contractBalance: DEPOSIT * 3n + parseEther("10"),
     stateDiff: eventWords({ startsAt: now + 3600n * 24n, cancelCutoff: now + 3600n * 12n, checkInEndsAt: now + 3600n * 27n, held: 3n, bond: parseEther("10") }),
+  }),
+  await check("withdrawCreditsFor: settlement credit delivered to its owner", {
+    from: guest,
+    fn: "withdrawCreditsFor",
+    args: [organizer],
+    contractBalance: DEPOSIT,
+    stateDiff: [{ slot: numberToHex(mapSlot(organizer, 8n, "address"), { size: 32 }), value: word(DEPOSIT) }],
   }),
   await check("claim: refund when nobody was checked in", {
     from: guest,

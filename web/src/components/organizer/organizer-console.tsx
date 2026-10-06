@@ -9,13 +9,14 @@ import { useConnection } from "wagmi";
 import { PhaseLabel } from "@/components/event/phase-label";
 import { AttendeeList } from "@/components/organizer/attendee-list";
 import { EditDetailsDialog } from "@/components/organizer/edit-details-dialog";
+import { CollectCredits } from "@/components/collect-credits";
 import { CancelEventCard, SettleCard } from "@/components/organizer/lifecycle-cards";
 import { SharePanel } from "@/components/organizer/share-panel";
 import { LoadError } from "@/components/load-error";
 import { ButtonLink } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConnectPrompt } from "@/components/wallet/require-wallet";
-import { eventPhase, noShows, type ShwUpEvent } from "@/domain/event";
+import { eventPhase, ForfeitPolicy, forfeitRecipient, noShows, type ShwUpEvent } from "@/domain/event";
 import { useEvent } from "@/hooks/use-shwup";
 import { useNow } from "@/hooks/use-now";
 import { formatUsd } from "@/lib/money";
@@ -124,6 +125,22 @@ export function OrganizerConsole({ id }: { id: bigint }) {
         <aside className="flex flex-col gap-6 max-lg:order-first">
           {phase !== "cancelled" && phase !== "settled" && <SharePanel event={event} />}
           {(phase === "closed" || phase === "settled") && <SettleCard event={event} phase={phase} onSettled={refetch} />}
+          {phase === "settled" && (
+            <CollectCredits
+              account={event.organizer}
+              self
+              title="Yours to collect"
+              description="No-show deposits and your bond from your settled events, waiting in the contract."
+            />
+          )}
+          {phase === "settled" && event.forfeitPolicy === ForfeitPolicy.Beneficiary && (
+            <CollectCredits
+              account={event.beneficiary}
+              self={false}
+              title={`Send it to ${forfeitRecipient(event)}`}
+              description="No-show deposits are waiting for them in the contract. Anyone can send them on; they can only go to that wallet."
+            />
+          )}
           {phase === "open" && event.checkedIn === 0 && <CancelEventCard event={event} onCancelled={refetch} />}
         </aside>
       </div>
