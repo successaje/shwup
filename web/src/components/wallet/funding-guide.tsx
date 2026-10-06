@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useBalance, useConnection, useSwitchChain } from "wagmi";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { BridgePanel } from "@/components/wallet/bridge-panel";
 import { chain, chainKey, fundingUrl } from "@/config/chain";
 import { cn } from "@/lib/cn";
 import { toFriendlyError } from "@/lib/errors";
@@ -78,8 +79,7 @@ export function FundingGuide({ need, open, onOpenChange }: { need: bigint; open:
             </p>
           ) : (
             <p className="mt-2 text-ink-2">
-              From an exchange or another wallet, withdraw USDC choosing the <b>Arc</b> network. Already have USDC on another chain? Bridge it with
-              Circle&apos;s CCTP from any supported app.
+              From an exchange or another wallet, withdraw USDC choosing the <b>Arc</b> network.
               {fundingUrl && (
                 <>
                   {" "}
@@ -90,6 +90,7 @@ export function FundingGuide({ need, open, onOpenChange }: { need: bigint; open:
               )}
             </p>
           )}
+          {chainKey === "arc" && !funded && <BridgePanel need={need} balance={balance?.value ?? 0n} />}
         </Step>
 
         <Step n={3} done={funded} title="Come back here">
