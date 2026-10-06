@@ -3,6 +3,7 @@
 import { ArrowDownLeft, ArrowRightLeft, ArrowUpRight, CalendarCheck, CircleSlash, Clock, Gift, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { CollectCredits } from "@/components/collect-credits";
 import { ButtonLink } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ConnectPrompt, useWalletReady } from "@/components/wallet/require-wallet";
@@ -169,6 +170,13 @@ export function Activity() {
           </p>
         )}
       </header>
+
+      <CollectCredits
+        account={address}
+        self
+        title="Money waiting for you"
+        description="Your share from settled events — no-show deposits or your bond — plus anything the contract couldn't send straight to your wallet."
+      />
 
       {guestItems.length > 0 && (
         <dl className="border-line bg-line grid grid-cols-2 gap-px overflow-hidden rounded-md border sm:grid-cols-4">

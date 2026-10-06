@@ -33,7 +33,11 @@ export function guestActivity(event: ShwUpEvent, ticket: GuestTicket, now = new 
   switch (ticket.status) {
     case TicketStatus.Held:
       if (event.cancelled) return [{ ...base, key: k("refundOwed"), kind: "refundOwed", amount: event.deposit + event.bondPerGuest }];
-      if (phase === "closed" || phase === "settled") return [{ ...base, key: k("forfeited"), kind: "forfeited", amount: event.deposit }];
+      if (phase === "closed" || phase === "settled") {
+        // Nobody checked in at all: the deposit is refunded, not forfeited.
+        if (event.checkedIn === 0) return [{ ...base, key: k("refundOwed"), kind: "refundOwed", amount: event.deposit }];
+        return [{ ...base, key: k("forfeited"), kind: "forfeited", amount: event.deposit }];
+      }
       return [{ ...base, key: k("holding"), kind: "holding", amount: event.deposit }];
     case TicketStatus.Released:
       return [{ ...base, key: k("refunded"), kind: "refunded", amount: event.deposit + (event.cancelled ? event.bondPerGuest : 0n) }];
@@ -71,7 +75,7 @@ export function showUpRecord(entries: { event: ShwUpEvent; ticket: GuestTicket }
     if (ticket.status === TicketStatus.CheckedIn) {
       attended++;
       decided++;
-    } else if (ticket.status === TicketStatus.Held && now >= event.checkInEndsAt) {
+    } else if (ticket.status === TicketStatus.Held && now >= event.checkInEndsAt && event.checkedIn > 0) {
       decided++;
     }
   }
@@ -87,7 +91,7 @@ export function organizerRecord(events: ShwUpEvent[], now = new Date()) {
   const finished = events.filter((e) => !e.cancelled && now >= e.checkInEndsAt && e.held > 0);
   const held = finished.reduce((a, e) => a + e.held, 0);
   const came = finished.reduce((a, e) => a + e.checkedIn, 0);
-  const kept = finished.filter((e) => e.forfeitPolicy === ForfeitPolicy.Organizer).reduce((a, e) => a + BigInt(noShows(e)) * e.deposit, 0n);
+  const kept = finished.filter((e) => e.forfeitPolicy === ForfeitPolicy.Organizer && e.checkedIn > 0).reduce((a, e) => a + BigInt(noShows(e)) * e.deposit, 0n);
   return {
     hosted: events.filter((e) => !e.cancelled).length,
     finished: finished.length,

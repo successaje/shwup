@@ -7,7 +7,7 @@ who came, paid to the organizer, or sent to a cause.
 Events are the first use. The same contract handles any reservation that should be kept: a
 restaurant table, an appointment, a class — a deposit, a time and a door.
 
-**Live (Arc testnet):** https://shwup.vercel.app · **Contract:** [verified on the Arc explorer](https://explorer.testnet.arc.io/address/0x191e7817E6fAafF2169660e6F13f2f3197ecBC9C?tab=contract)
+**Live (Arc testnet):** https://shwup.vercel.app · **Contract:** [verified on the Arc explorer](https://explorer.testnet.arc.io/address/0xf0802c0C94beC42ac93bc7439724dF04674a7A39?tab=contract)
 
 ---
 
@@ -232,7 +232,7 @@ object patch on check-in).
 
 | Network | Chain ID | ShwUp |
 | --- | --- | --- |
-| Arc Testnet | 5042002 | [`0x191e7817E6fAafF2169660e6F13f2f3197ecBC9C`](https://explorer.testnet.arc.io/address/0x191e7817E6fAafF2169660e6F13f2f3197ecBC9C?tab=contract) (verified) |
+| Arc Testnet | 5042002 | [`0xf0802c0C94beC42ac93bc7439724dF04674a7A39`](https://explorer.testnet.arc.io/address/0xf0802c0C94beC42ac93bc7439724dF04674a7A39?tab=contract) (verified) |
 | Arc Mainnet | 5042 | _pending_ |
 
 ## Repository

@@ -67,8 +67,15 @@ describe("guestView", () => {
   });
 
   it("tells no-shows what happened", () => {
-    expect(guestView(event, t(TicketStatus.Held), h(28))).toEqual({ kind: "missed", settled: false });
-    expect(guestView({ ...event, settled: true }, t(TicketStatus.Held), h(28))).toEqual({ kind: "missed", settled: true });
+    const someoneCame = { ...event, checkedIn: 1 };
+    expect(guestView(someoneCame, t(TicketStatus.Held), h(28))).toEqual({ kind: "missed", settled: false });
+    expect(guestView({ ...someoneCame, settled: true }, t(TicketStatus.Held), h(28))).toEqual({ kind: "missed", settled: true });
+  });
+
+  it("refunds everyone when nobody was checked in", () => {
+    expect(guestView(event, t(TicketStatus.Held), h(28))).toEqual({ kind: "doorNeverOpened", claimable: true });
+    expect(guestView({ ...event, settled: true }, t(TicketStatus.Released), h(28))).toEqual({ kind: "doorNeverOpened", claimable: false });
+    expect(guestView(event, t(TicketStatus.Held), h(24))).toMatchObject({ kind: "holding" }); // still open: not yet
   });
 
   it("offers refunds when the event is cancelled", () => {

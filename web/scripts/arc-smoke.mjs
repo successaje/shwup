@@ -11,7 +11,7 @@ import { arcTestnet } from "viem/chains";
 import { readFileSync } from "node:fs";
 
 const rpc = process.argv[2] ?? "https://rpc.testnet.arc.io";
-const shwup = process.argv[3] ?? "0x191e7817E6fAafF2169660e6F13f2f3197ecBC9C";
+const shwup = process.argv[3] ?? "0xf0802c0C94beC42ac93bc7439724dF04674a7A39";
 const abiSrc = readFileSync(new URL("../src/lib/contracts/shwup-abi.ts", import.meta.url), "utf8");
 const abi = JSON.parse(abiSrc.slice(abiSrc.indexOf("["), abiSrc.lastIndexOf("]") + 1));
 
@@ -107,7 +107,7 @@ const results = [
     contractBalance: DEPOSIT,
     stateDiff: [...eventWords({ startsAt: now + 600n, cancelCutoff: now, checkInEndsAt: now + 3600n * 3n, held: 1n }), ticket(1)],
   }),
-  await check("settle: forfeit paid to organizer", {
+  await check("settle: forfeit credited to organizer", {
     from: guest,
     fn: "settle",
     args: [EVENT_ID],
@@ -129,7 +129,7 @@ const results = [
     contractBalance: DEPOSIT,
     stateDiff: [...eventWords({ startsAt: now + 3600n, cancelCutoff: now - 60n, checkInEndsAt: now + 3600n * 4n, held: 1n }), ticket(1, { offered: true, who: leaver })],
   }),
-  await check("settle: forfeit paid to beneficiary", {
+  await check("settle: forfeit credited to beneficiary", {
     from: guest,
     fn: "settle",
     args: [EVENT_ID],
@@ -142,6 +142,20 @@ const results = [
     args: [EVENT_ID],
     contractBalance: DEPOSIT * 3n + parseEther("10"),
     stateDiff: eventWords({ startsAt: now + 3600n * 24n, cancelCutoff: now + 3600n * 12n, checkInEndsAt: now + 3600n * 27n, held: 3n, bond: parseEther("10") }),
+  }),
+  await check("withdrawCreditsFor: settlement credit delivered to its owner", {
+    from: guest,
+    fn: "withdrawCreditsFor",
+    args: [organizer],
+    contractBalance: DEPOSIT,
+    stateDiff: [{ slot: numberToHex(mapSlot(organizer, 8n, "address"), { size: 32 }), value: word(DEPOSIT) }],
+  }),
+  await check("claim: refund when nobody was checked in", {
+    from: guest,
+    fn: "claim",
+    args: [EVENT_ID],
+    contractBalance: DEPOSIT,
+    stateDiff: [...eventWords({ startsAt: now - 7200n, cancelCutoff: now - 9000n, checkInEndsAt: now - 60n, held: 1n, settled: true }), ticket(1)],
   }),
   await check("claim: deposit + bond share after cancellation", {
     from: guest,

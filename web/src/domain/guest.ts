@@ -14,7 +14,8 @@ export type GuestView =
   | { kind: "holding"; phase: EventPhase; canCancel: boolean; offered: boolean } // has a spot, waiting to arrive
   | { kind: "arrived"; bonus: "none" | "pending" | "claimable" | "claimed" } // checked in
   | { kind: "missed"; settled: boolean } // held a spot, check-in closed without them
-  | { kind: "refund"; claimable: boolean }; // event cancelled
+  | { kind: "refund"; claimable: boolean } // event cancelled
+  | { kind: "doorNeverOpened"; claimable: boolean }; // check-in closed with nobody checked in: everyone's refunded
 
 export type TicketLike = { status: TicketStatus; bonusClaimed: boolean; claimable: bigint; offered?: boolean };
 
@@ -51,8 +52,13 @@ export function guestView(
     return { kind: "arrived", bonus: ticket?.bonusClaimed ? "claimed" : "claimable" };
   }
 
+  const over = phase === "closed" || phase === "settled";
+  if (over && event.checkedIn === 0 && ticket && (status === TicketStatus.Held || status === TicketStatus.Released)) {
+    return { kind: "doorNeverOpened", claimable: status === TicketStatus.Held };
+  }
+
   if (status === TicketStatus.Held) {
-    if (phase === "closed" || phase === "settled") return { kind: "missed", settled: phase === "settled" };
+    if (over) return { kind: "missed", settled: phase === "settled" };
     return { kind: "holding", phase, canCancel: now < event.cancelCutoff, offered: !!ticket?.offered };
   }
 
@@ -84,5 +90,7 @@ export function stubState(view: GuestView): StubState {
       return view.settled ? "noShow" : "held";
     case "refund":
       return view.claimable ? "cancelled" : "released";
+    case "doorNeverOpened":
+      return view.claimable ? "held" : "released";
   }
 }
