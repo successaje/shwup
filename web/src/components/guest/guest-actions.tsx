@@ -58,6 +58,12 @@ export function GuestActions({
           {event.bondPerGuest > 0n ? `, with ${formatUsd(event.bondPerGuest)} from the host's bond` : ""}.
         </Note>
       );
+    case "doorNeverOpened":
+      return view.claimable ? (
+        <ClaimRefund event={event} onDone={onChange} reason="doorNeverOpened" />
+      ) : (
+        <Note title="Nobody was checked in">Check-in closed without anyone scanned in, so your deposit was returned.</Note>
+      );
     case "closed":
       return (
         <Note title={view.phase === "cancelled" ? "This event was cancelled" : "RSVPs are closed"}>
@@ -309,7 +315,8 @@ function Arrived({ event, bonus, onChange }: { event: ShwUpEvent; bonus: Extract
   );
 }
 
-function ClaimRefund({ event, onDone }: { event: ShwUpEvent; onDone: () => void }) {
+function ClaimRefund({ event, onDone, reason = "cancelled" }: { event: ShwUpEvent; onDone: () => void; reason?: "cancelled" | "doorNeverOpened" }) {
+  const amount = reason === "cancelled" ? event.deposit + event.bondPerGuest : event.deposit;
   const tx = useStagedWrite();
   const claim = async () => {
     const r = await tx.run({ ...shwupContract, functionName: "claim", args: [event.id] });
@@ -317,12 +324,18 @@ function ClaimRefund({ event, onDone }: { event: ShwUpEvent; onDone: () => void 
   };
   return (
     <div className="flex flex-col gap-4">
-      <Note title="This event was cancelled">
-        Your full deposit is waiting for you
-        {event.bondPerGuest > 0n ? `, plus ${formatUsd(event.bondPerGuest)} from the host's bond for the trouble` : ""}.
-      </Note>
+      {reason === "cancelled" ? (
+        <Note title="This event was cancelled">
+          Your full deposit is waiting for you
+          {event.bondPerGuest > 0n ? `, plus ${formatUsd(event.bondPerGuest)} from the host's bond for the trouble` : ""}.
+        </Note>
+      ) : (
+        <Note title="Nobody was checked in">
+          Check-in closed without anyone scanned in, so nobody forfeits anything. Your full deposit is waiting for you.
+        </Note>
+      )}
       <Button size="lg" block loading={tx.busy} onClick={claim}>
-        Get my {formatUsd(event.deposit + event.bondPerGuest)}
+        Get my {formatUsd(amount)}
       </Button>
       <TxProgress stage={tx.stage} error={tx.error} result={tx.result} doneLabel="Refunded" />
     </div>

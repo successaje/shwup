@@ -143,6 +143,13 @@ const results = [
     contractBalance: DEPOSIT * 3n + parseEther("10"),
     stateDiff: eventWords({ startsAt: now + 3600n * 24n, cancelCutoff: now + 3600n * 12n, checkInEndsAt: now + 3600n * 27n, held: 3n, bond: parseEther("10") }),
   }),
+  await check("claim: refund when nobody was checked in", {
+    from: guest,
+    fn: "claim",
+    args: [EVENT_ID],
+    contractBalance: DEPOSIT,
+    stateDiff: [...eventWords({ startsAt: now - 7200n, cancelCutoff: now - 9000n, checkInEndsAt: now - 60n, held: 1n, settled: true }), ticket(1)],
+  }),
   await check("claim: deposit + bond share after cancellation", {
     from: guest,
     fn: "claim",

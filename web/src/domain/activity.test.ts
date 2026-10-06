@@ -47,6 +47,12 @@ describe("guestActivity", () => {
     expect(guestActivity(ev(), t(TicketStatus.Released), now)[0].kind).toBe("refunded");
     expect(guestActivity(ev({ cancelled: true }), t(TicketStatus.Held), now)[0].kind).toBe("refundOwed");
   });
+
+  it("refunds rather than forfeits when nobody was checked in", () => {
+    const nobody = ev({ checkedIn: 0 });
+    expect(guestActivity(nobody, t(TicketStatus.Held), now)[0]).toMatchObject({ kind: "refundOwed", amount: nobody.deposit });
+    expect(showUpRecord([{ event: nobody, ticket: t(TicketStatus.Held) }], now)).toEqual({ attended: 0, decided: 0 });
+  });
 });
 
 describe("totals and records", () => {
