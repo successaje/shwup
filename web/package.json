@@ -13,6 +13,8 @@
     "smoke:arc": "node scripts/arc-smoke.mjs"
   },
   "dependencies": {
+    "@circle-fin/adapter-viem-v2": "^1.18.0",
+    "@circle-fin/app-kit": "^1.15.3",
     "@radix-ui/react-dialog": "^1.1.23",
     "@tanstack/react-query": "^5.104.1",
     "clsx": "^2.1.1",
