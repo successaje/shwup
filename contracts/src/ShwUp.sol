@@ -15,8 +15,12 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 ///      rounding dust, their bond), the event's beneficiary (forfeits), or guests of a cancelled
 ///      event (the organizer's bond).
 ///
+///      If check-in closes with nobody checked in, nothing is forfeited: a door that never opened
+///      (a dead phone, an organizer who didn't turn up) shouldn't cost guests their deposits.
+///
 ///      Invariant: address(this).balance ==
 ///          Σ deposits of Held tickets (unsettled, uncancelled events)
+///        + Σ deposits of Held tickets in settled events nobody was checked in at (claimable refunds)
 ///        + Σ (deposit + bondPerGuest) of Held tickets in cancelled events (claimable)
 ///        + Σ bonds of unsettled, uncancelled events
 ///        + Σ unclaimed bonuses
@@ -111,6 +115,7 @@ contract ShwUp is ReentrancyGuard {
     event CheckedIn(uint256 indexed eventId, address indexed attendee, address indexed by, uint96 refund);
     event CheckerUpdated(uint256 indexed eventId, address indexed checker, bool allowed, uint256 funded);
     event EventCancelled(uint256 indexed eventId);
+    event RefundsOpened(uint256 indexed eventId, uint32 guests);
     event EventSettled(
         uint256 indexed eventId, uint32 noShows, uint256 forfeited, uint128 bonusPerAttendee, uint256 toOrganizer
     );
@@ -351,7 +356,7 @@ contract ShwUp is ReentrancyGuard {
     }
 
     /// @notice Claim what you're owed for an event: your deposit plus a share of the organizer's bond
-    ///         if the event was cancelled, or your
+    ///         if the event was cancelled, your deposit if check-in closed with nobody checked in, or your
     ///         share of forfeited deposits once check-in has closed (settling the event if needed).
     function claim(uint256 eventId) external nonReentrant {
         EventInfo storage e = _existing(eventId);
@@ -369,6 +374,14 @@ contract ShwUp is ReentrancyGuard {
 
         // Attendees shouldn't have to wait for someone to press "settle".
         if (!e.settled && block.timestamp >= e.checkInEndsAt) _settle(eventId, e);
+
+        if (e.settled && e.checkedIn == 0 && t.status == TicketStatus.Held) {
+            t.status = TicketStatus.Released;
+            e.held -= 1;
+            _pay(msg.sender, e.deposit);
+            emit SpotReleased(eventId, msg.sender, e.deposit);
+            return;
+        }
 
         if (!e.settled || t.status != TicketStatus.CheckedIn || t.bonusClaimed || e.bonusPerAttendee == 0) {
             revert NothingToClaim();
@@ -403,6 +416,10 @@ contract ShwUp is ReentrancyGuard {
         EventInfo storage e = _events[eventId];
         Ticket storage t = _tickets[eventId][attendee];
         if (e.cancelled) return t.status == TicketStatus.Held ? uint256(e.deposit) + e.bondPerGuest : 0;
+        // Nobody was checked in: every held deposit comes back once check-in closes.
+        if (t.status == TicketStatus.Held && e.checkedIn == 0 && (e.settled || block.timestamp >= e.checkInEndsAt)) {
+            return e.deposit;
+        }
         if (t.status != TicketStatus.CheckedIn || t.bonusClaimed) return 0;
         if (e.settled) return e.bonusPerAttendee;
         // Closed but not yet settled: what `claim` would settle and pay.
@@ -538,6 +555,13 @@ contract ShwUp is ReentrancyGuard {
 
     function _settle(uint256 eventId, EventInfo storage e) private {
         e.settled = true;
+        if (e.checkedIn == 0) {
+            // The door never checked anyone in: refund instead of forfeiting (claimed via `claim`).
+            emit RefundsOpened(eventId, e.held);
+            emit EventSettled(eventId, 0, 0, 0, 0);
+            _returnBond(eventId, e);
+            return;
+        }
         uint32 noShows = e.held - e.checkedIn;
         uint256 forfeited = uint256(noShows) * e.deposit;
         uint256 toOrganizer = forfeited;
@@ -556,7 +580,10 @@ contract ShwUp is ReentrancyGuard {
         if (toOrganizer > 0) _pay(e.organizer, toOrganizer);
 
         emit EventSettled(eventId, noShows, forfeited, bonus, toOrganizer);
+        _returnBond(eventId, e);
+    }
 
+    function _returnBond(uint256 eventId, EventInfo storage e) private {
         if (e.bond > 0) {
             _pay(e.organizer, e.bond);
             emit BondReturned(eventId, e.organizer, e.bond);

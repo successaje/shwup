@@ -144,6 +144,7 @@ contract ShwUpHandler is Test {
             for (uint256 j; j < actors.length; ++j) {
                 ShwUp.Ticket memory t = shwup.ticketOf(id, actors[j]);
                 if (t.status == ShwUp.TicketStatus.Held && !info.settled) owed += info.deposit + info.bondPerGuest;
+                if (t.status == ShwUp.TicketStatus.Held && info.settled && info.checkedIn == 0) owed += info.deposit;
                 if (t.status == ShwUp.TicketStatus.CheckedIn && info.settled && !t.bonusClaimed) {
                     owed += info.bonusPerAttendee;
                 }

@@ -403,13 +403,58 @@ contract ShwUpTest is Test {
         assertEq(shwup.claimable(id, alice), 0);
     }
 
-    function test_settle_nobodyCameGoesToOrganizer() public {
+    function test_settle_nobodyCheckedIn_refundsEveryone() public {
         uint256 id = _create(ShwUp.ForfeitPolicy.Attendees, 0);
         _rsvp(id, alice);
+        _rsvp(id, bob);
         vm.warp(checkInEndsAt);
-        uint256 before = organizer.balance;
+        uint256 orgBefore = organizer.balance;
+        vm.expectEmit(address(shwup));
+        emit ShwUp.RefundsOpened(id, 2);
         shwup.settle(id);
-        assertEq(organizer.balance, before + DEPOSIT);
+        assertEq(organizer.balance, orgBefore, "nothing forfeited");
+        assertEq(shwup.claimable(id, alice), DEPOSIT);
+
+        uint256 aliceBefore = alice.balance;
+        vm.prank(alice);
+        shwup.claim(id);
+        assertEq(alice.balance, aliceBefore + DEPOSIT);
+        assertEq(uint8(_status(id, alice)), uint8(ShwUp.TicketStatus.Released));
+        vm.prank(alice);
+        vm.expectRevert(ShwUp.NothingToClaim.selector);
+        shwup.claim(id);
+        vm.prank(bob);
+        shwup.claim(id);
+        assertEq(address(shwup).balance, 0);
+    }
+
+    function test_nobodyCheckedIn_refundsUnderEveryPolicy() public {
+        for (uint8 p; p < 3; ++p) {
+            ShwUp.ForfeitPolicy policy = ShwUp.ForfeitPolicy(p);
+            vm.prank(organizer);
+            uint256 id = shwup.createEvent{value: 1 ether}(
+                DEPOSIT,
+                0,
+                startsAt,
+                cancelCutoff,
+                checkInEndsAt,
+                policy,
+                policy == ShwUp.ForfeitPolicy.Beneficiary ? carol : address(0),
+                ""
+            );
+            _rsvp(id, alice);
+        }
+        vm.warp(checkInEndsAt);
+        uint256 orgBefore = organizer.balance;
+        uint256 carolBefore = carol.balance;
+        for (uint256 id = 1; id <= 3; ++id) {
+            assertEq(shwup.claimable(id, alice), DEPOSIT, "claimable before anyone settles");
+            vm.prank(alice);
+            shwup.claim(id); // settles, then refunds
+        }
+        assertEq(organizer.balance, orgBefore + 3 ether, "only the bonds come back to the organizer");
+        assertEq(carol.balance, carolBefore, "the cause gets nothing");
+        assertEq(address(shwup).balance, 0);
     }
 
     function test_settle_revertsBeforeCheckInCloses() public {
@@ -637,6 +682,9 @@ contract ShwUpTest is Test {
     function test_claim_noShowCannotTriggerSettlement() public {
         uint256 id = _create(ShwUp.ForfeitPolicy.Attendees, 0);
         _rsvp(id, alice);
+        _rsvp(id, bob);
+        vm.warp(startsAt);
+        _checkIn(id, bob); // somebody came, so alice's deposit is forfeited, not refunded
         vm.warp(checkInEndsAt);
         vm.prank(alice);
         vm.expectRevert(ShwUp.NothingToClaim.selector);
@@ -683,7 +731,7 @@ contract ShwUpTest is Test {
         }
         vm.warp(checkInEndsAt);
         shwup.settle(id);
-        for (uint256 i; i < arrivals; ++i) {
+        for (uint256 i; i < rsvps; ++i) {
             if (shwup.claimable(id, people[i]) > 0) {
                 vm.prank(people[i]);
                 shwup.claim(id);

@@ -1070,6 +1070,25 @@ export const shwupAbi = [
   },
   {
     "type": "event",
+    "name": "RefundsOpened",
+    "inputs": [
+      {
+        "name": "eventId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "guests",
+        "type": "uint32",
+        "indexed": false,
+        "internalType": "uint32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "SpotHeld",
     "inputs": [
       {
