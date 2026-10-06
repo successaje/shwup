@@ -15,12 +15,18 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 ///      rounding dust, their bond), the event's beneficiary (forfeits), or guests of a cancelled
 ///      event (the organizer's bond).
 ///
-///      If check-in closes with nobody checked in, nothing is forfeited: a door that never opened
-///      (a dead phone, an organizer who didn't turn up) shouldn't cost guests their deposits.
+///      If check-in closes with nobody checked in, nothing is forfeited and the organizer's bond is
+///      split among the guests, as if the event had been cancelled: a door that never opened (a dead
+///      phone, an organizer who didn't turn up) shouldn't cost guests anything, and ghosting must not
+///      pay the organizer better than cancelling.
+///
+///      Settlement never pushes funds: what the organizer or beneficiary is owed is credited, and
+///      anyone can deliver credits to their owner with `withdrawCreditsFor`. So one blocklisted or
+///      misbehaving recipient can't freeze an event's settlement, bonuses or refunds.
 ///
 ///      Invariant: address(this).balance ==
 ///          Σ deposits of Held tickets (unsettled, uncancelled events)
-///        + Σ deposits of Held tickets in settled events nobody was checked in at (claimable refunds)
+///        + Σ (deposit + bondPerGuest) of Held tickets in settled events nobody was checked in at
 ///        + Σ (deposit + bondPerGuest) of Held tickets in cancelled events (claimable)
 ///        + Σ bonds of unsettled, uncancelled events
 ///        + Σ unclaimed bonuses
@@ -111,7 +117,7 @@ contract ShwUp is ReentrancyGuard {
         ForfeitPolicy forfeitPolicy
     );
     event SpotHeld(uint256 indexed eventId, address indexed attendee, uint96 deposit);
-    event SpotReleased(uint256 indexed eventId, address indexed attendee, uint96 refund);
+    event SpotReleased(uint256 indexed eventId, address indexed attendee, uint256 refund);
     event CheckedIn(uint256 indexed eventId, address indexed attendee, address indexed by, uint96 refund);
     event CheckerUpdated(uint256 indexed eventId, address indexed checker, bool allowed, uint256 funded);
     event EventCancelled(uint256 indexed eventId);
@@ -128,6 +134,7 @@ contract ShwUp is ReentrancyGuard {
     event SpotTransferred(uint256 indexed eventId, address indexed from, address indexed to, uint96 deposit);
     event NameSet(address indexed account, string name);
     event PaymentDeferred(address indexed to, uint256 amount);
+    event Credited(address indexed to, uint256 amount);
     event CreditWithdrawn(address indexed to, uint256 amount);
 
     // ───────────────────────────────────────────── errors
@@ -159,6 +166,8 @@ contract ShwUp is ReentrancyGuard {
     error InvalidBond();
     error NotOffered();
     error CannotTakeOwnSpot();
+    error CannotCheckInSelf();
+    error OrganizerCannotHoldSpot();
 
     // ───────────────────────────────────────────── modifiers
 
@@ -332,6 +341,8 @@ contract ShwUp is ReentrancyGuard {
     function checkIn(uint256 eventId, address attendee) external nonReentrant {
         EventInfo storage e = _existing(eventId);
         if (msg.sender != e.organizer && !isChecker[eventId][msg.sender]) revert NotAuthorizedChecker();
+        // A door key checking itself in could collect a share of no-show deposits it never earned.
+        if (attendee == msg.sender) revert CannotCheckInSelf();
         if (e.cancelled) revert EventIsCancelled();
         if (block.timestamp + EARLY_CHECK_IN < e.startsAt) revert CheckInNotOpen();
         if (block.timestamp >= e.checkInEndsAt) revert CheckInClosed();
@@ -368,7 +379,7 @@ contract ShwUp is ReentrancyGuard {
             _clearOffer(t);
             e.held -= 1;
             _pay(msg.sender, uint256(e.deposit) + e.bondPerGuest);
-            emit SpotReleased(eventId, msg.sender, e.deposit + e.bondPerGuest);
+            emit SpotReleased(eventId, msg.sender, uint256(e.deposit) + e.bondPerGuest);
             return;
         }
 
@@ -378,8 +389,8 @@ contract ShwUp is ReentrancyGuard {
         if (e.settled && e.checkedIn == 0 && t.status == TicketStatus.Held) {
             t.status = TicketStatus.Released;
             e.held -= 1;
-            _pay(msg.sender, e.deposit);
-            emit SpotReleased(eventId, msg.sender, e.deposit);
+            _pay(msg.sender, uint256(e.deposit) + e.bondPerGuest);
+            emit SpotReleased(eventId, msg.sender, uint256(e.deposit) + e.bondPerGuest);
             return;
         }
 
@@ -391,14 +402,16 @@ contract ShwUp is ReentrancyGuard {
         emit BonusClaimed(eventId, msg.sender, e.bonusPerAttendee);
     }
 
-    /// @notice Withdraw payments that could not be pushed to you earlier.
+    /// @notice Withdraw what you're owed: settlement payouts (forfeits, bond) and payments that
+    ///         couldn't be pushed to you.
     function withdrawCredits() external nonReentrant {
-        uint256 amount = credits[msg.sender];
-        if (amount == 0) revert NothingToClaim();
-        credits[msg.sender] = 0;
-        (bool ok,) = msg.sender.call{value: amount}("");
-        if (!ok) revert TransferFailed();
-        emit CreditWithdrawn(msg.sender, amount);
+        _withdrawCredits(msg.sender);
+    }
+
+    /// @notice Deliver `account`'s credits to `account`. Anyone can call it — the money can only go
+    ///         to its owner — so an organizer can pay out a cause's share without the cause acting.
+    function withdrawCreditsFor(address account) external nonReentrant {
+        _withdrawCredits(account);
     }
 
     // ───────────────────────────────────────────── views
@@ -418,7 +431,8 @@ contract ShwUp is ReentrancyGuard {
         if (e.cancelled) return t.status == TicketStatus.Held ? uint256(e.deposit) + e.bondPerGuest : 0;
         // Nobody was checked in: every held deposit comes back once check-in closes.
         if (t.status == TicketStatus.Held && e.checkedIn == 0 && (e.settled || block.timestamp >= e.checkInEndsAt)) {
-            return e.deposit;
+            // Before settlement, preview the bond share `_settle` will set.
+            return uint256(e.deposit) + (e.settled ? e.bondPerGuest : e.bond / e.held);
         }
         if (t.status != TicketStatus.CheckedIn || t.bonusClaimed) return 0;
         if (e.settled) return e.bonusPerAttendee;
@@ -440,7 +454,7 @@ contract ShwUp is ReentrancyGuard {
         returns (address[] memory attendees, TicketStatus[] memory statuses)
     {
         address[] storage all = _attendees[eventId];
-        uint256 end = offset + limit > all.length ? all.length : offset + limit;
+        uint256 end = offset >= all.length ? offset : (limit > all.length - offset ? all.length : offset + limit);
         uint256 n = end > offset ? end - offset : 0;
         attendees = new address[](n);
         statuses = new TicketStatus[](n);
@@ -459,7 +473,7 @@ contract ShwUp is ReentrancyGuard {
         returns (address[] memory holders, address[] memory offeredTo)
     {
         address[] storage all = _attendees[eventId];
-        uint256 end = offset + limit > all.length ? all.length : offset + limit;
+        uint256 end = offset >= all.length ? offset : (limit > all.length - offset ? all.length : offset + limit);
         uint256 n;
         for (uint256 i = offset; i < end; ++i) {
             Ticket storage t = _tickets[eventId][all[i]];
@@ -537,6 +551,8 @@ contract ShwUp is ReentrancyGuard {
 
     /// @dev Marks `who`'s ticket Held, registering them on first contact with the event.
     function _hold(uint256 eventId, address who) private {
+        // An organizer holding a spot could check themselves in and collect no-shows' deposits.
+        if (who == _events[eventId].organizer) revert OrganizerCannotHoldSpot();
         Ticket storage t = _tickets[eventId][who];
         if (t.status == TicketStatus.Held || t.status == TicketStatus.CheckedIn) revert AlreadyHolding();
         if (t.status == TicketStatus.None) {
@@ -556,10 +572,19 @@ contract ShwUp is ReentrancyGuard {
     function _settle(uint256 eventId, EventInfo storage e) private {
         e.settled = true;
         if (e.checkedIn == 0) {
-            // The door never checked anyone in: refund instead of forfeiting (claimed via `claim`).
+            // The door never checked anyone in: refund instead of forfeiting (claimed via `claim`),
+            // and the bond goes to the guests, as on cancellation.
             emit RefundsOpened(eventId, e.held);
             emit EventSettled(eventId, 0, 0, 0, 0);
-            _returnBond(eventId, e);
+            uint96 dust = e.bond;
+            if (e.held > 0) {
+                e.bondPerGuest = e.bond / e.held;
+                dust = e.bond - e.bondPerGuest * e.held;
+            }
+            if (dust > 0) {
+                _credit(e.organizer, dust);
+                emit BondReturned(eventId, e.organizer, dust);
+            }
             return;
         }
         uint32 noShows = e.held - e.checkedIn;
@@ -575,9 +600,9 @@ contract ShwUp is ReentrancyGuard {
             e.bonusPerAttendee = bonus;
         } else if (e.forfeitPolicy == ForfeitPolicy.Beneficiary && forfeited > 0) {
             toOrganizer = 0;
-            _pay(e.beneficiary, forfeited);
+            _credit(e.beneficiary, forfeited);
         }
-        if (toOrganizer > 0) _pay(e.organizer, toOrganizer);
+        if (toOrganizer > 0) _credit(e.organizer, toOrganizer);
 
         emit EventSettled(eventId, noShows, forfeited, bonus, toOrganizer);
         _returnBond(eventId, e);
@@ -585,9 +610,24 @@ contract ShwUp is ReentrancyGuard {
 
     function _returnBond(uint256 eventId, EventInfo storage e) private {
         if (e.bond > 0) {
-            _pay(e.organizer, e.bond);
+            _credit(e.organizer, e.bond);
             emit BondReturned(eventId, e.organizer, e.bond);
         }
+    }
+
+    /// @dev Settlement credits instead of pushing, so it never depends on a recipient accepting funds.
+    function _credit(address to, uint256 amount) private {
+        credits[to] += amount;
+        emit Credited(to, amount);
+    }
+
+    function _withdrawCredits(address account) private {
+        uint256 amount = credits[account];
+        if (amount == 0) revert NothingToClaim();
+        credits[account] = 0;
+        (bool ok,) = account.call{value: amount}("");
+        if (!ok) revert TransferFailed();
+        emit CreditWithdrawn(account, amount);
     }
 
     function _setName(string calldata name) private {

@@ -131,12 +131,23 @@ contract ShwUpHandler is Test {
         shwup.claim(_event(e));
     }
 
+    /// @dev Delivers settlement credits to the organizer or the beneficiary.
+    function collect(uint256 w) external {
+        address who = w % 2 == 0 ? organizer : address(0xFEED);
+        if (shwup.credits(who) > 0) shwup.withdrawCreditsFor(who);
+    }
+
     function warp(uint256 secs) external {
         vm.warp(block.timestamp + bound(secs, 1, 8 hours));
     }
 
     /// @notice Sum of everything the contract currently owes anyone.
     function liabilities() external view returns (uint256 owed) {
+        // Settlement credits the organizer and beneficiary; actors may hold pushed-payment credits.
+        owed += shwup.credits(organizer) + shwup.credits(address(0xFEED));
+        for (uint256 j; j < actors.length; ++j) {
+            owed += shwup.credits(actors[j]);
+        }
         for (uint256 i; i < eventIds.length; ++i) {
             uint256 id = eventIds[i];
             ShwUp.EventInfo memory info = shwup.getEvent(id);
@@ -144,7 +155,9 @@ contract ShwUpHandler is Test {
             for (uint256 j; j < actors.length; ++j) {
                 ShwUp.Ticket memory t = shwup.ticketOf(id, actors[j]);
                 if (t.status == ShwUp.TicketStatus.Held && !info.settled) owed += info.deposit + info.bondPerGuest;
-                if (t.status == ShwUp.TicketStatus.Held && info.settled && info.checkedIn == 0) owed += info.deposit;
+                if (t.status == ShwUp.TicketStatus.Held && info.settled && info.checkedIn == 0) {
+                    owed += info.deposit + info.bondPerGuest;
+                }
                 if (t.status == ShwUp.TicketStatus.CheckedIn && info.settled && !t.bonusClaimed) {
                     owed += info.bonusPerAttendee;
                 }

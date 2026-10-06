@@ -69,6 +69,11 @@ contract ShwUpTest is Test {
         shwup.checkIn(id, who);
     }
 
+    /// @dev Settlement credits recipients; anyone can deliver credits to their owner.
+    function _collect(address who) internal {
+        if (shwup.credits(who) > 0) shwup.withdrawCreditsFor(who);
+    }
+
     function _status(uint256 id, address who) internal view returns (ShwUp.TicketStatus) {
         return shwup.ticketOf(id, who).status;
     }
@@ -383,6 +388,7 @@ contract ShwUpTest is Test {
         vm.warp(checkInEndsAt);
         uint256 before = organizer.balance;
         shwup.settle(id);
+        _collect(organizer);
 
         uint128 bonus = shwup.getEvent(id).bonusPerAttendee;
         assertEq(bonus, uint128(DEPOSIT / 3));
@@ -399,6 +405,7 @@ contract ShwUpTest is Test {
 
         uint256 before = organizer.balance;
         shwup.settle(id);
+        _collect(organizer);
         assertEq(organizer.balance, before + DEPOSIT);
         assertEq(shwup.claimable(id, alice), 0);
     }
@@ -429,6 +436,7 @@ contract ShwUpTest is Test {
     }
 
     function test_nobodyCheckedIn_refundsUnderEveryPolicy() public {
+        uint256 aliceStart = alice.balance;
         for (uint8 p; p < 3; ++p) {
             ShwUp.ForfeitPolicy policy = ShwUp.ForfeitPolicy(p);
             vm.prank(organizer);
@@ -448,12 +456,14 @@ contract ShwUpTest is Test {
         uint256 orgBefore = organizer.balance;
         uint256 carolBefore = carol.balance;
         for (uint256 id = 1; id <= 3; ++id) {
-            assertEq(shwup.claimable(id, alice), DEPOSIT, "claimable before anyone settles");
+            assertEq(shwup.claimable(id, alice), DEPOSIT + 1 ether, "deposit + bond share, before anyone settles");
             vm.prank(alice);
             shwup.claim(id); // settles, then refunds
         }
-        assertEq(organizer.balance, orgBefore + 3 ether, "only the bonds come back to the organizer");
+        assertEq(organizer.balance, orgBefore, "a no-show organizer's bond goes to the guests");
+        assertEq(shwup.credits(organizer), 0);
         assertEq(carol.balance, carolBefore, "the cause gets nothing");
+        assertEq(alice.balance, aliceStart + 3 ether, "alice got every deposit back plus each bond");
         assertEq(address(shwup).balance, 0);
     }
 
@@ -737,6 +747,7 @@ contract ShwUpTest is Test {
                 shwup.claim(id);
             }
         }
+        _collect(organizer);
         assertEq(address(shwup).balance, 0, "all funds distributed");
     }
 
@@ -883,6 +894,8 @@ contract ShwUpTest is Test {
         uint256 orgBefore = organizer.balance;
         vm.warp(checkInEndsAt);
         shwup.settle(id);
+        assertEq(fund.balance, 0, "credited, not pushed");
+        _collect(fund);
         assertEq(fund.balance, DEPOSIT);
         assertEq(organizer.balance, orgBefore);
         assertEq(shwup.getEvent(id).bonusPerAttendee, 0);
@@ -918,6 +931,9 @@ contract ShwUpTest is Test {
         uint256 orgBefore = organizer.balance;
         vm.warp(checkInEndsAt);
         shwup.settle(id);
+        assertEq(shwup.credits(organizer), 20 ether);
+        vm.prank(organizer);
+        shwup.withdrawCredits();
         assertEq(organizer.balance, orgBefore + 20 ether);
         assertEq(address(shwup).balance, 0);
     }
@@ -961,6 +977,105 @@ contract ShwUpTest is Test {
         vm.warp(checkInEndsAt);
         uint256 orgBefore = organizer.balance;
         shwup.settle(id);
+        _collect(organizer);
         assertEq(organizer.balance, orgBefore + 10 ether);
+    }
+
+    // ───────────────────────────── audit fixes
+
+    /// Audit M-1: ghosting must not pay the organizer better than cancelling.
+    function test_ghostingCostsTheBond() public {
+        uint256 id = _createBonded(30 ether);
+        _rsvp(id, alice);
+        _rsvp(id, bob);
+        _rsvp(id, carol);
+        vm.warp(checkInEndsAt); // the organizer never opened the door
+        shwup.settle(id);
+        assertEq(shwup.credits(organizer), 0);
+        assertEq(shwup.getEvent(id).bondPerGuest, 10 ether);
+        uint256 before = alice.balance;
+        vm.prank(alice);
+        shwup.claim(id);
+        assertEq(alice.balance, before + DEPOSIT + 10 ether);
+    }
+
+    function test_ghosting_bondDustGoesToOrganizer() public {
+        uint256 id = _createBonded(10 ether);
+        _rsvp(id, alice);
+        _rsvp(id, bob);
+        _rsvp(id, carol);
+        vm.warp(checkInEndsAt);
+        shwup.settle(id);
+        assertEq(shwup.credits(organizer), 10 ether - (uint256(10 ether) / 3) * 3);
+    }
+
+    /// Audit M-2: settlement makes no external calls, so a recipient that rejects funds can't freeze it.
+    function test_settle_survivesRejectingBeneficiary() public {
+        RejectingReceiver bad = new RejectingReceiver(shwup);
+        vm.prank(organizer);
+        uint256 id = shwup.createEvent(
+            DEPOSIT, 0, startsAt, cancelCutoff, checkInEndsAt, ShwUp.ForfeitPolicy.Beneficiary, address(bad), ""
+        );
+        _rsvp(id, alice);
+        _rsvp(id, bob);
+        vm.warp(startsAt);
+        _checkIn(id, alice);
+        vm.warp(checkInEndsAt);
+        shwup.settle(id);
+        assertEq(shwup.credits(address(bad)), DEPOSIT);
+        vm.expectRevert(ShwUp.TransferFailed.selector);
+        shwup.withdrawCreditsFor(address(bad));
+    }
+
+    function test_withdrawCreditsFor_onlyPaysTheOwner() public {
+        uint256 id = _create(ShwUp.ForfeitPolicy.Organizer, 0);
+        _rsvp(id, alice);
+        _rsvp(id, bob);
+        vm.warp(startsAt);
+        _checkIn(id, alice);
+        vm.warp(checkInEndsAt);
+        shwup.settle(id);
+        uint256 before = organizer.balance;
+        vm.prank(carol); // a stranger delivers it
+        shwup.withdrawCreditsFor(organizer);
+        assertEq(organizer.balance, before + DEPOSIT);
+        vm.expectRevert(ShwUp.NothingToClaim.selector);
+        shwup.withdrawCreditsFor(organizer);
+    }
+
+    /// Audit L-1: a door key can't check itself in; an organizer can't hold a spot at their own event.
+    function test_checkerCannotCheckInSelf() public {
+        uint256 id = _create();
+        vm.prank(organizer);
+        shwup.setChecker(id, door, true);
+        vm.deal(door, 10 ether);
+        _rsvp(id, door);
+        vm.warp(startsAt);
+        vm.prank(door);
+        vm.expectRevert(ShwUp.CannotCheckInSelf.selector);
+        shwup.checkIn(id, door);
+    }
+
+    function test_organizerCannotHoldSpot() public {
+        uint256 id = _create();
+        vm.prank(organizer);
+        vm.expectRevert(ShwUp.OrganizerCannotHoldSpot.selector);
+        shwup.rsvp{value: DEPOSIT}(id);
+
+        _rsvp(id, alice);
+        vm.prank(alice);
+        shwup.offerSpot(id, address(0));
+        vm.prank(organizer);
+        vm.expectRevert(ShwUp.OrganizerCannotHoldSpot.selector);
+        shwup.takeSpot{value: DEPOSIT}(id, alice);
+    }
+
+    function test_pagination_offsetPastEndIsEmpty() public {
+        uint256 id = _create();
+        _rsvp(id, alice);
+        (address[] memory a,) = shwup.getAttendees(id, 5, type(uint256).max);
+        assertEq(a.length, 0);
+        (address[] memory o,) = shwup.getOffers(id, 0, type(uint256).max);
+        assertEq(o.length, 0);
     }
 }

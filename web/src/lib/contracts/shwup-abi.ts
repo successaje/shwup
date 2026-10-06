@@ -732,6 +732,19 @@ export const shwupAbi = [
   },
   {
     "type": "function",
+    "name": "withdrawCreditsFor",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "withdrawOffer",
     "inputs": [
       {
@@ -877,6 +890,25 @@ export const shwupAbi = [
   {
     "type": "event",
     "name": "CreditWithdrawn",
+    "inputs": [
+      {
+        "name": "to",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "Credited",
     "inputs": [
       {
         "name": "to",
@@ -1155,9 +1187,9 @@ export const shwupAbi = [
       },
       {
         "name": "refund",
-        "type": "uint96",
+        "type": "uint256",
         "indexed": false,
-        "internalType": "uint96"
+        "internalType": "uint256"
       }
     ],
     "anonymous": false
@@ -1206,6 +1238,11 @@ export const shwupAbi = [
   {
     "type": "error",
     "name": "CancellationClosed",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "CannotCheckInSelf",
     "inputs": []
   },
   {
@@ -1306,6 +1343,11 @@ export const shwupAbi = [
   {
     "type": "error",
     "name": "NothingToClaim",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "OrganizerCannotHoldSpot",
     "inputs": []
   },
   {
