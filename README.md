@@ -176,11 +176,12 @@ CI runs contract fmt/build/tests and web lint/typecheck/tests/build on every pul
 
 ## Deployment
 
-**Contract** (needs a Foundry keystore account funded with a little USDC):
+**Contract** (needs a wallet with a little USDC on the target network; no private key in any file):
 
 ```bash
-cast wallet import shwup-deployer --interactive
-./scripts/deploy-contract.sh arcTestnet shwup-deployer   # or: arc
+./scripts/deploy-contract.sh arc browser      # sign with your browser wallet (MetaMask, Rabby…)
+./scripts/deploy-contract.sh arc ledger       # or a Ledger / Trezor hardware wallet
+./scripts/deploy-contract.sh arcTestnet <name>  # or an encrypted keystore: cast wallet new ~/.foundry/keystores <name>
 ```
 
 The script deploys, verifies the source on Arc's Blockscout explorer, records the address in

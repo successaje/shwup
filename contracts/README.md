@@ -114,9 +114,10 @@ forge build
 forge test                 # unit, fuzz and invariant tests
 forge fmt --check
 
-# Deploy (Arc testnet). Import a key once with: cast wallet import shwup-deployer --interactive
+# Deploy (Arc testnet) — prefer ../scripts/deploy-contract.sh arcTestnet browser, which also verifies.
+# Signing with an encrypted keystore created by: cast wallet new ~/.foundry/keystores <name>
 export ARC_TESTNET_RPC_URL=https://rpc.testnet.arc.io
-forge script script/Deploy.s.sol --rpc-url arc_testnet --account shwup-deployer --broadcast
+forge script script/Deploy.s.sol --rpc-url arc_testnet --account <name> --broadcast
 ```
 
 Deployed addresses are written to [`deployments/<chainId>.json`](deployments/).
