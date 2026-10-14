@@ -1,7 +1,6 @@
 # ShwUp — Arc Microgrants submission kit
 
-Everything for the DoraHacks BUIDL page, ready to paste. Fill the two `⟨…⟩` placeholders once the
-mainnet contract is deployed.
+Everything for the DoraHacks BUIDL page, ready to paste.
 
 ## Assets (this folder)
 
@@ -33,7 +32,7 @@ Commit. Show up. Get it back. Refundable USDC deposits for events, tables and ap
 ## Links
 
 - **Live app (Arc mainnet):** https://shwup.vercel.app
-- **Contract (Arc mainnet, verified):** https://explorer.arc.io/address/⟨MAINNET_ADDRESS⟩?tab=contract
+- **Contract (Arc mainnet, verified):** https://explorer.arc.io/address/0xD471AE011F565a28Cfa29c63f6F36727ac47602E (source: https://repo.sourcify.dev/5042/0xD471AE011F565a28Cfa29c63f6F36727ac47602E, exact match)
 - **Repo:** https://github.com/successaje/shwup
 - **Builder:** https://github.com/successaje
 - Testnet contract (verified): https://explorer.testnet.arc.io/address/0xf0802c0C94beC42ac93bc7439724dF04674a7A39?tab=contract
@@ -102,7 +101,7 @@ have fixed fees and take days to release, so small deposits never made sense.
 | Sub-second deterministic finality | The refund is final before the guest is through the door; the app shows the measured time |
 | Circle CCTP (App Kit) | Guests without USDC on Arc bring it from Base, Ethereum, Arbitrum, Optimism or Polygon inside the app; Circle's forwarder mints on Arc, so they need no Arc gas first |
 
-Measured on Arc testnet: hold a spot ≈ $0.004, door refund ≈ $0.0025, claim ≈ $0.0013.
+Measured against the mainnet contract: hold a spot ≈ $0.003, door refund ≈ $0.002, claim ≈ $0.001.
 
 ### What's built
 
