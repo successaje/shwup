@@ -6,7 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useConfig, useConnection, useSwitchChain } from "wagmi";
 import { simulateContract, waitForTransactionReceipt, writeContract } from "wagmi/actions";
 import { chain } from "@/config/chain";
-import { toFriendlyError, type FriendlyError } from "@/lib/errors";
+import { toFriendlyError, unconfirmed, type FriendlyError } from "@/lib/errors";
 
 /**
  * The stages a person sees for any on-chain action:
@@ -34,6 +34,7 @@ export function useStagedWrite() {
     async (request: Request): Promise<RunOutcome> => {
       if (busy.current) return { ok: false, error: null };
       busy.current = true;
+      let sent: `0x${string}` | undefined;
       setError(null);
       setResult(null);
       try {
@@ -44,6 +45,7 @@ export function useStagedWrite() {
 
         setStage("signing");
         const hash = await writeContract(config, prepared);
+        sent = hash;
 
         setStage("settling");
         const sentAt = performance.now();
@@ -59,7 +61,8 @@ export function useStagedWrite() {
         return { ok: true, ...r };
       } catch (e) {
         console.error(e);
-        const friendly = toFriendlyError(e);
+        // Once the wallet has sent it, never claim nothing moved: point at the transaction instead.
+        const friendly = sent ? unconfirmed(sent, e) : toFriendlyError(e);
         setError(friendly);
         setStage("error");
         return { ok: false, error: friendly };
