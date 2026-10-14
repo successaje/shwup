@@ -56,6 +56,13 @@ const ticket = (status, { bonusClaimed = false, offered = false, who = guest } =
   value: word(BigInt(status) | ((bonusClaimed ? 1n : 0n) << 8n) | ((offered ? 1n : 0n) << 16n)),
 });
 
+// Calls to an address with no code "succeed" without doing anything, so check there's a contract first.
+const code = await client.getCode({ address: shwup });
+if (!code || code === "0x") {
+  console.error(`No contract at ${shwup} on this network — nothing to test.`);
+  process.exit(1);
+}
+
 const { timestamp, number } = await client.getBlock();
 const gasPrice = await client.getGasPrice();
 console.log(`Arc block ${number} · gas price ${Number(gasPrice) / 1e9} gwei · contract ${shwup}\n`);

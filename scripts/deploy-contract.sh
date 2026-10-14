@@ -24,6 +24,14 @@ DEPLOYMENT="deployments/$CHAIN_ID.json"
 ADDRESS=$(node -e "console.log(require('./$DEPLOYMENT').ShwUp)")
 BLOCK=$(node -e "console.log(require('./$DEPLOYMENT').blockNumber)")
 
+# The script writes the deployment record during its dry run, so make sure the broadcast actually
+# landed (e.g. it fails silently-looking when the deployer has no USDC for gas).
+if [ "$(FOUNDRY_DISABLE_NIGHTLY_WARNING=1 cast code "$ADDRESS" --rpc-url "$RPC")" = "0x" ]; then
+  git checkout -- "$DEPLOYMENT" 2>/dev/null || rm -f "$DEPLOYMENT"
+  echo "No contract at $ADDRESS on $NETWORK — the deploy didn't land. Is the deployer funded with USDC on this network?" >&2
+  exit 1
+fi
+
 # Publish the source on Arc's Blockscout explorer.
 FOUNDRY_DISABLE_NIGHTLY_WARNING=1 forge verify-contract "$ADDRESS" src/ShwUp.sol:ShwUp \
   --chain-id "$CHAIN_ID" --verifier blockscout --verifier-url "$EXPLORER/api/" --watch
