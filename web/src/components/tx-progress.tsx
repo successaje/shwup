@@ -44,6 +44,17 @@ export function TxProgress({
             {error.detail}
             {error.fundsSafe && error.kind !== "rejected" && " Your money hasn’t moved."}
           </p>
+          {error.hash && explorerUrl("tx", error.hash) && (
+            <a href={explorerUrl("tx", error.hash)} target="_blank" rel="noreferrer" className="mt-1 inline-block font-medium text-ink underline underline-offset-4">
+              View on the explorer
+            </a>
+          )}
+          {error.raw && (
+            <details className="mt-2 text-xs text-ink-3">
+              <summary className="cursor-pointer">Technical details</summary>
+              <p className="mt-1 break-words font-mono">{error.raw.slice(0, 400)}</p>
+            </details>
+          )}
         </div>
       </div>
     );

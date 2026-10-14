@@ -5,8 +5,30 @@ export type FriendlyError = {
   detail: string;
   /** Whether the person's money is untouched, so we can say so. */
   fundsSafe: boolean;
-  kind: "rejected" | "revert" | "funds" | "network" | "unknown";
+  kind: "rejected" | "revert" | "funds" | "network" | "unknown" | "unconfirmed";
+  /** The underlying error, for the "Technical details" toggle. */
+  raw?: string;
+  /** Set when a transaction was already sent: link it rather than claim nothing moved. */
+  hash?: string;
 };
+
+/** A transaction that was sent but whose confirmation we couldn't observe. */
+export function unconfirmed(hash: string, error: unknown): FriendlyError {
+  return {
+    kind: "unconfirmed",
+    title: "Sent — still confirming",
+    detail: "Your wallet sent the transaction, but we couldn't see it confirm yet. Check it on the explorer before trying again.",
+    fundsSafe: false,
+    hash,
+    raw: rawMessage(error),
+  };
+}
+
+function rawMessage(error: unknown): string | undefined {
+  if (error instanceof BaseError) return [error.shortMessage, error.details].filter(Boolean).join(" — ");
+  if (error instanceof Error) return error.message;
+  return typeof error === "string" ? error : undefined;
+}
 
 /** What each contract error means to a person, not a developer. */
 const REVERTS: Record<string, { title: string; detail: string }> = {
@@ -33,6 +55,11 @@ const REVERTS: Record<string, { title: string; detail: string }> = {
 };
 
 export function toFriendlyError(error: unknown): FriendlyError {
+  const f = classify(error);
+  return f.kind === "rejected" ? f : { ...f, raw: rawMessage(error) };
+}
+
+function classify(error: unknown): FriendlyError {
   if (error instanceof BaseError) {
     if (error.walk((e) => e instanceof UserRejectedRequestError)) {
       return { kind: "rejected", title: "Request cancelled", detail: "You declined in your wallet. Nothing was sent.", fundsSafe: true };
@@ -54,7 +81,12 @@ export function toFriendlyError(error: unknown): FriendlyError {
       return { kind: "network", title: "Wrong network", detail: "Switch your wallet to Arc and try again.", fundsSafe: true };
     }
     if (text.includes("http request failed") || text.includes("fetch") || text.includes("timeout") || text.includes("took too long")) {
-      return { kind: "network", title: "Can't reach the network", detail: "Arc didn't respond. Check your connection and try again.", fundsSafe: true };
+      return {
+        kind: "network",
+        title: "Can't reach the network",
+        detail: "Arc didn't respond. Check your connection — and in your wallet's network settings, that Arc's RPC is https://rpc.mainnet.arc.io (chain 5042).",
+        fundsSafe: true,
+      };
     }
   }
   return { kind: "unknown", title: "Something went wrong", detail: "Nothing was sent. Try again in a moment.", fundsSafe: true };
