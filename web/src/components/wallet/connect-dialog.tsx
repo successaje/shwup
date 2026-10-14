@@ -70,13 +70,40 @@ export function ConnectDialog({ open, onOpenChange }: { open: boolean; onOpenCha
   );
 }
 
+/** MetaMask's universal link that opens a page inside the MetaMask app's browser. */
+export function metamaskDappLink(href: string): string {
+  return `https://metamask.app.link/dapp/${href.replace(/^https?:\/\//, "")}`;
+}
+
 function NoWallet() {
+  // Phones have no wallet extension: the page has to open inside the wallet app's own browser.
+  const mobile = typeof navigator !== "undefined" && /android|iphone|ipad|ipod/i.test(navigator.userAgent);
+  const here = typeof window !== "undefined" ? window.location.href : "";
+
+  if (mobile) {
+    return (
+      <div className="flex flex-col gap-4 text-sm text-ink-2">
+        <p>
+          Phone browsers can&apos;t reach your wallet app directly. Open this page inside your wallet&apos;s browser and
+          connect from there.
+        </p>
+        <a
+          href={metamaskDappLink(here)}
+          className="flex h-12 items-center justify-center rounded-md bg-ink font-medium text-paper transition-opacity hover:opacity-90"
+        >
+          Open in MetaMask
+        </a>
+        <p className="text-xs text-ink-3">
+          Using another wallet (Rabby, Coinbase, Trust)? Open its browser tab and go to{" "}
+          <span className="num text-ink-2">{here.replace(/^https?:\/\//, "")}</span>
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4 text-sm text-ink-2">
-      <p>
-        We couldn&apos;t find a wallet in this browser. On a phone, open this page inside your wallet app&apos;s browser
-        (MetaMask, Rabby, Phantom). On a computer, install a wallet extension and refresh.
-      </p>
+      <p>We couldn&apos;t find a wallet in this browser. Install a wallet extension (MetaMask, Rabby) and refresh.</p>
       <a
         href="https://metamask.io/download"
         target="_blank"
