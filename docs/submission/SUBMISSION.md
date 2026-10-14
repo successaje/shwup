@@ -7,7 +7,8 @@ mainnet contract is deployed.
 
 | File | Use |
 | --- | --- |
-| `logo-512.png` | BUIDL logo (square) |
+| `logo-480.png` | BUIDL logo (DoraHacks recommends 480 × 480) |
+| `logo-512.png` | Logo, larger |
 | `cover-1920x1080.png` | BUIDL cover / banner |
 | `card-1200x630.png` | Social posts (X, Farcaster) |
 | `screen-landing.png` | Gallery: landing page |
