@@ -31,7 +31,7 @@ if (chainKey === "local") {
  * networks and providers block direct requests to the chain's RPC host. Falls back to the RPC
  * directly. The local chain has no relay need.
  */
-function transport() {
+export function transport() {
   if (typeof window === "undefined" || chainKey === "local") return http(rpcUrl);
   return fallback([http(new URL("/api/rpc", window.location.origin).href, { batch: true }), http(rpcUrl)]);
 }

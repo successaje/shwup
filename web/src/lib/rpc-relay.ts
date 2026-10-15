@@ -1,6 +1,7 @@
 /**
- * Which JSON-RPC calls the app's same-origin relay forwards to Arc. Reads only: the relay never
- * signs or sends anything — transactions go through the person's own wallet.
+ * Which JSON-RPC calls the app's same-origin relay forwards to Arc: reads, plus broadcasting
+ * transactions that were already signed in the browser (the door key's check-ins). The relay holds
+ * no keys and can't sign, create or alter a transaction.
  */
 export const RELAY_METHODS = new Set([
   "eth_blockNumber",
@@ -17,6 +18,7 @@ export const RELAY_METHODS = new Set([
   "eth_getTransactionCount",
   "eth_getTransactionReceipt",
   "eth_maxPriorityFeePerGas",
+  "eth_sendRawTransaction",
   "net_version",
 ]);
 

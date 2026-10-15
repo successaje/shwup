@@ -9,9 +9,13 @@ describe("relayRejection", () => {
     expect(relayRejection([req("eth_getBalance"), req("eth_getTransactionReceipt", 2)])).toBeNull();
   });
 
-  it("refuses anything that sends, signs or touches accounts", () => {
-    expect(relayRejection(req("eth_sendRawTransaction"))).toMatch(/not allowed/);
+  it("broadcasts already-signed transactions (door key check-ins)", () => {
+    expect(relayRejection(req("eth_sendRawTransaction"))).toBeNull();
+  });
+
+  it("refuses anything that signs or touches accounts", () => {
     expect(relayRejection(req("eth_sign"))).toMatch(/not allowed/);
+    expect(relayRejection(req("eth_accounts"))).toMatch(/not allowed/);
     expect(relayRejection([req("eth_call"), req("eth_sendTransaction", 2)])).toMatch(/not allowed/);
   });
 
