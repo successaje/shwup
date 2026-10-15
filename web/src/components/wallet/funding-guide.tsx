@@ -3,6 +3,7 @@
 import { ArrowUpRight, Check, Copy } from "lucide-react";
 import { useState } from "react";
 import { useBalance, useConnection, useSwitchChain } from "wagmi";
+import { switchToArc } from "@/lib/switch-to-arc";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { BridgePanel } from "@/components/wallet/bridge-panel";
@@ -16,7 +17,7 @@ import { formatUsd } from "@/lib/money";
  * address, get USDC, and watch the balance arrive without leaving the page.
  */
 export function FundingGuide({ need, open, onOpenChange }: { need: bigint; open: boolean; onOpenChange: (o: boolean) => void }) {
-  const { address, chainId } = useConnection();
+  const { address, chainId, connector } = useConnection();
   const { switchChainAsync, isPending: switching } = useSwitchChain();
   const { data: balance } = useBalance({ address, chainId: chain.id, query: { enabled: open && !!address, refetchInterval: 4_000 } });
   const [copied, setCopied] = useState(false);
@@ -28,7 +29,7 @@ export function FundingGuide({ need, open, onOpenChange }: { need: bigint; open:
   const addNetwork = async () => {
     setNetworkError(null);
     try {
-      await switchChainAsync({ chainId: chain.id }); // wallets that don't know Arc are asked to add it
+      await switchToArc({ connector, switchChainAsync }); // wallets that don't know Arc are asked to add it
     } catch (e) {
       const f = toFriendlyError(e);
       setNetworkError(f.kind === "rejected" ? "Cancelled in your wallet." : "Your wallet couldn't add Arc. Add it manually with the details below.");

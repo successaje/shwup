@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import type { Hash, TransactionReceipt } from "viem";
 import { useQueryClient } from "@tanstack/react-query";
 import { useConfig, useConnection, useSwitchChain } from "wagmi";
+import { switchToArc } from "@/lib/switch-to-arc";
 import { simulateContract, waitForTransactionReceipt, writeContract } from "wagmi/actions";
 import { chain } from "@/config/chain";
 import { toFriendlyError, unconfirmed, type FriendlyError } from "@/lib/errors";
@@ -22,7 +23,7 @@ type Request = Omit<Parameters<typeof simulateContract>[1], "value"> & { value?:
 
 export function useStagedWrite() {
   const config = useConfig();
-  const { chainId, address } = useConnection();
+  const { chainId, address, connector } = useConnection();
   const { switchChainAsync } = useSwitchChain();
   const [stage, setStage] = useState<Stage>("idle");
   const [error, setError] = useState<FriendlyError | null>(null);
@@ -39,7 +40,7 @@ export function useStagedWrite() {
       setResult(null);
       try {
         setStage("preparing");
-        if (chainId !== chain.id) await switchChainAsync({ chainId: chain.id });
+        if (chainId !== chain.id) await switchToArc({ connector, switchChainAsync });
         // Simulate first so contract errors surface as readable messages before any wallet prompt.
         const { request: prepared } = await simulateContract(config, { ...request, account: address } as Parameters<typeof simulateContract>[1]);
 
@@ -70,7 +71,7 @@ export function useStagedWrite() {
         busy.current = false;
       }
     },
-    [address, chainId, config, queryClient, switchChainAsync],
+    [address, chainId, config, connector, queryClient, switchChainAsync],
   );
 
   const reset = useCallback(() => {
