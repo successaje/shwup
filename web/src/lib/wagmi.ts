@@ -1,3 +1,4 @@
+import { fallback } from "viem";
 import { cookieStorage, createConfig, createStorage, http, type CreateConnectorFn } from "wagmi";
 import { injected, mock } from "wagmi/connectors";
 import { chain, chainKey, rpcUrl } from "@/config/chain";
@@ -25,10 +26,20 @@ if (chainKey === "local") {
   }
 }
 
+/**
+ * In the browser, reads go through our same-origin relay first (/api/rpc): some extensions,
+ * networks and providers block direct requests to the chain's RPC host. Falls back to the RPC
+ * directly. The local chain has no relay need.
+ */
+function transport() {
+  if (typeof window === "undefined" || chainKey === "local") return http(rpcUrl);
+  return fallback([http(new URL("/api/rpc", window.location.origin).href, { batch: true }), http(rpcUrl)]);
+}
+
 export const wagmiConfig = createConfig({
   chains: [chain],
   connectors,
-  transports: { [chain.id]: http(rpcUrl) },
+  transports: { [chain.id]: transport() },
   ssr: true,
   storage: createStorage({ storage: cookieStorage }),
 });
