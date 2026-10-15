@@ -1,4 +1,5 @@
 import { BaseError, ContractFunctionRevertedError, UserRejectedRequestError } from "viem";
+import { chain } from "@/config/chain";
 
 export type FriendlyError = {
   title: string;
@@ -74,6 +75,7 @@ function classify(error: unknown): FriendlyError {
     }
 
     const text = `${error.shortMessage} ${error.details ?? ""}`.toLowerCase();
+    if (text.includes("does not support programmatic chain switching")) return SWITCH_MANUALLY;
     if (text.includes("insufficient funds") || text.includes("exceeds the balance")) {
       return { kind: "funds", title: "Not enough USDC", detail: "Your wallet needs a bit more USDC to cover this and the tiny network fee.", fundsSafe: true };
     }
@@ -84,13 +86,22 @@ function classify(error: unknown): FriendlyError {
       return {
         kind: "network",
         title: "Can't reach the network",
-        detail: "Arc didn't respond. Check your connection — and in your wallet's network settings, that Arc's RPC is https://rpc.mainnet.arc.io (chain 5042).",
+        detail: `Arc didn't respond. Check your connection — and in your wallet's network settings, that ${chain.name}'s RPC is ${chain.rpcUrls.default.http[0]} (chain ${chain.id}).`,
         fundsSafe: true,
       };
     }
   }
+  if (error instanceof Error && error.message === "ChainSwitchUnavailable") return SWITCH_MANUALLY;
   return { kind: "unknown", title: "Something went wrong", detail: "Nothing was sent. Try again in a moment.", fundsSafe: true };
 }
+
+const SWITCH_MANUALLY: FriendlyError = {
+  kind: "network",
+  title: "Switch your wallet to Arc",
+  detail:
+    `Your wallet didn't let us switch networks. Open its network menu and choose ${chain.name} — or add it: RPC ${chain.rpcUrls.default.http[0]}, chain ID ${chain.id}, currency USDC — then try again.`,
+  fundsSafe: true,
+};
 
 /** True when a read failed because the event doesn't exist (vs. the network being down). */
 export function isNotFound(error: unknown): boolean {
