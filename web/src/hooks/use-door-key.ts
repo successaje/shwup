@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useState, useSyncExternalStore } from "react";
-import { createWalletClient, http, type Address } from "viem";
+import { createWalletClient, type Address } from "viem";
+import { transport } from "@/lib/wagmi";
 import type { PrivateKeyAccount } from "viem/accounts";
 import { useBalance, usePublicClient, useReadContract } from "wagmi";
-import { chain, rpcUrl, shwupAddress } from "@/config/chain";
+import { chain, shwupAddress } from "@/config/chain";
 import { createDoorKey, DOOR_KEY_FUNDING, forgetDoorKey, loadDoorKey } from "@/lib/door-key";
 import { shwupContract } from "@/hooks/use-shwup";
 import { useStagedWrite } from "@/hooks/use-staged-write";
@@ -52,7 +53,7 @@ export function useDoorKey(eventId: bigint) {
   const returnLeftovers = useCallback(
     async (to: Address) => {
       if (!key || !publicClient || !shwupAddress) return false;
-      const wallet = createWalletClient({ account: key, chain, transport: http(rpcUrl) });
+      const wallet = createWalletClient({ account: key, chain, transport: transport() });
       const [bal, fees] = await Promise.all([publicClient.getBalance({ address: key.address }), publicClient.estimateFeesPerGas()]);
       const gas = 21_000n * 2n; // headroom for Arc's system transfer log
       const cost = gas * fees.maxFeePerGas;

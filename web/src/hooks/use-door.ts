@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
-import { createWalletClient, http, type Address, type Hash, type WalletClient } from "viem";
+import { createWalletClient, type Address, type Hash, type WalletClient } from "viem";
+import { transport } from "@/lib/wagmi";
 import type { PrivateKeyAccount } from "viem/accounts";
 import { usePublicClient, useWalletClient } from "wagmi";
-import { chain, rpcUrl, shwupAddress } from "@/config/chain";
+import { chain, shwupAddress } from "@/config/chain";
 import { TicketStatus, type ShwUpEvent } from "@/domain/event";
 import { parseTicket } from "@/domain/ticket-code";
 import { shwupAbi } from "@/lib/contracts/shwup-abi";
@@ -47,7 +48,7 @@ export function useDoor(event: ShwUpEvent, doorKey: PrivateKeyAccount | null) {
 
   // Prefer the door key (no prompts); fall back to the organizer's own wallet.
   const signer: WalletClient | undefined = useMemo(
-    () => (doorKey ? createWalletClient({ account: doorKey, chain, transport: http(rpcUrl) }) : walletClient),
+    () => (doorKey ? createWalletClient({ account: doorKey, chain, transport: transport() }) : walletClient),
     [doorKey, walletClient],
   );
 
