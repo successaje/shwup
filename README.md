@@ -1,5 +1,7 @@
 # ShwUp
 
+> 🏆 **Arc Microgrant winner** — one of 20 projects selected by Circle's [Arc Microgrants](https://dorahacks.io/hackathon/arc-microgrants/winner) (October 2026).
+
 **Commit. Show up. Get it back.** Guests hold a spot with a small USDC deposit and get it back the
 second they're scanned in at the door. People who never show forfeit theirs — split among the people
 who came, paid to the organizer, or sent to a cause.
