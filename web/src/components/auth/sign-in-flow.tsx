@@ -20,7 +20,9 @@ export type SignInStep = "loading" | "wallet" | "confirm" | "done";
 export function useSignInStep(): SignInStep {
   const { address, status } = useConnection();
   const { enabled, user, loading } = useSession();
-  if (loading || status === "reconnecting" || status === "connecting") return "loading";
+  // Only restoring a saved connection counts as loading. A connection in progress ("connecting")
+  // stays on the wallet step: that's where the QR code and "check your wallet" live.
+  if (loading || status === "reconnecting") return "loading";
   if (!address) return "wallet";
   if (enabled && !user) return "confirm";
   return "done";
