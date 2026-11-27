@@ -29,6 +29,7 @@
     "react-dom": "19.2.8",
     "server-only": "^0.0.1",
     "sonner": "^2.0.8",
+    "tailwind-merge": "^3",
     "viem": "2",
     "wagmi": "^3.7.7"
   },
