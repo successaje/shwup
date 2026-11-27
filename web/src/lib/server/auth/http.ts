@@ -1,11 +1,9 @@
 import "server-only";
 import { cookies } from "next/headers";
+import type { PublicUser } from "@/domain/account";
 import type { User } from "@/lib/server/db/schema";
 import { getDb } from "@/lib/server/db";
 import { getSessionUser, SESSION_COOKIE } from "./session";
-
-/** What the browser may see about a user. Email stays server-side. */
-export type PublicUser = Pick<User, "id" | "address" | "handle" | "displayName" | "avatarUrl" | "bio">;
 
 export const toPublicUser = ({ id, address, handle, displayName, avatarUrl, bio }: User): PublicUser => ({
   id,
