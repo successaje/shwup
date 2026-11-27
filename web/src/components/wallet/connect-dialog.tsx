@@ -6,14 +6,28 @@ import { Spinner } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { toFriendlyError } from "@/lib/errors";
 
+/** A dialog for connecting a wallet, for flows that only need one (holding a spot, creating an event). */
+export function ConnectDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Connect a wallet"
+      description="ShwUp never holds your money. Deposits sit in a public contract until they're returned."
+    >
+      {open && <WalletList onConnected={() => onOpenChange(false)} />}
+    </Dialog>
+  );
+}
+
 /**
  * Lists wallets announced via EIP-6963. The generic `injected` connector is only shown when no
  * named wallet announced itself (older wallets, some mobile in-app browsers).
  */
-export function ConnectDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+export function WalletList({ onConnected }: { onConnected?: () => void }) {
   const connectors = useConnectors();
-  const { connect, isPending, variables, error, reset } = useConnect({
-    mutation: { onSuccess: () => onOpenChange(false) },
+  const { connect, isPending, variables, error } = useConnect({
+    mutation: { onSuccess: () => onConnected?.() },
   });
 
   const named = connectors.filter((c) => c.id !== "injected");
@@ -22,15 +36,7 @@ export function ConnectDialog({ open, onOpenChange }: { open: boolean; onOpenCha
   const friendly = error ? toFriendlyError(error) : null;
 
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(o) => {
-        if (!o) reset();
-        onOpenChange(o);
-      }}
-      title="Connect a wallet"
-      description="ShwUp never holds your money. Deposits sit in a public contract until they're returned."
-    >
+    <>
       {list.length > 0 ? (
         <ul className="flex flex-col gap-2">
           {list.map((c) => {
@@ -66,7 +72,7 @@ export function ConnectDialog({ open, onOpenChange }: { open: boolean; onOpenCha
           {friendly.kind === "rejected" ? "Connection cancelled in your wallet." : friendly.detail}
         </p>
       )}
-    </Dialog>
+    </>
   );
 }
 

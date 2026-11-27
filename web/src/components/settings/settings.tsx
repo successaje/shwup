@@ -1,9 +1,10 @@
 "use client";
 
-import { ArrowUpRight, KeyRound } from "lucide-react";
+import { ArrowUpRight, BadgeCheck, KeyRound } from "lucide-react";
 import Link from "next/link";
 import { useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
+import { SignInDialog } from "@/components/auth/sign-in-dialog";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TxProgress } from "@/components/tx-progress";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import { Avatar } from "@/components/wallet/account-button";
 import { ConnectPrompt, useWalletReady } from "@/components/wallet/require-wallet";
 import { chain, explorerUrl, shwupAddress } from "@/config/chain";
 import { validateName } from "@/domain/names";
+import { useSession, useSignOut } from "@/hooks/use-session";
 import { shwupContract, useMyName } from "@/hooks/use-shwup";
 import { useStagedWrite } from "@/hooks/use-staged-write";
 import { shortAddress } from "@/lib/address";
@@ -33,6 +35,7 @@ export function Settings() {
           <span className="num text-sm">{shortAddress(address)}</span>
         </p>
       </header>
+      <AccountSection />
       <NameSection address={address} />
       <Section title="Appearance" description="Light, dark, or match your device. Remembered on this browser.">
         <ThemeToggle />
@@ -50,6 +53,36 @@ function Section({ title, description, children }: { title: string; description?
       {description && <p className="mt-1 text-sm text-ink-2">{description}</p>}
       <div className="mt-5">{children}</div>
     </section>
+  );
+}
+
+/** Signed in or not, on this device. Hidden when the deployment has no accounts. */
+function AccountSection() {
+  const { enabled, user } = useSession();
+  const signOut = useSignOut();
+  const [open, setOpen] = useState(false);
+  if (!enabled) return null;
+  return (
+    <Section
+      title="Account"
+      description={user ? "Signed in on this device. Your profile follows this wallet." : "Sign in to keep your profile and events across devices. Free, no transaction."}
+    >
+      {user ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="inline-flex items-center gap-1.5 text-sm text-ok">
+            <BadgeCheck className="size-4" /> Signed in
+          </span>
+          <Button size="sm" variant="secondary" loading={signOut.isPending} onClick={() => signOut.mutate({ keepWallet: true })}>
+            Sign out of this device
+          </Button>
+        </div>
+      ) : (
+        <>
+          <Button onClick={() => setOpen(true)}>Sign in</Button>
+          <SignInDialog open={open} onOpenChange={setOpen} />
+        </>
+      )}
+    </Section>
   );
 }
 
