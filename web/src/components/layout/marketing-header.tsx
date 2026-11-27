@@ -9,6 +9,7 @@ import { MobileMenu } from "@/components/layout/mobile-menu";
 import { isCurrent, MARKETING_NAV } from "@/components/layout/nav";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ButtonLink } from "@/components/ui/button";
+import { useSession } from "@/hooks/use-session";
 import { cn } from "@/lib/cn";
 
 const subscribeScroll = (cb: () => void) => {
@@ -25,6 +26,8 @@ function useScrolled(threshold = 8) {
 export function MarketingHeader() {
   const scrolled = useScrolled();
   const pathname = usePathname();
+  const { enabled, user } = useSession();
+  const showSignIn = enabled && !user;
   return (
     <header
       className={cn(
@@ -57,15 +60,27 @@ export function MarketingHeader() {
           <div className="hidden md:block">
             <ThemeToggle size="sm" />
           </div>
+          {showSignIn && (
+            <Link href="/sign-in" className="text-sm text-ink-2 transition-colors hover:text-ink max-md:hidden">
+              Sign in
+            </Link>
+          )}
           <ButtonLink href="/app" size="sm" icon={<ArrowRight className="size-3.5" />} className="flex-row-reverse max-md:hidden">
             Open app
           </ButtonLink>
           <MobileMenu
             items={MARKETING_NAV}
             footer={
-              <ButtonLink href="/app" size="lg" block icon={<ArrowRight className="size-4" />} className="flex-row-reverse">
-                Open app
-              </ButtonLink>
+              <div className="flex flex-col gap-2">
+                <ButtonLink href="/app" size="lg" block icon={<ArrowRight className="size-4" />} className="flex-row-reverse">
+                  Open app
+                </ButtonLink>
+                {showSignIn && (
+                  <ButtonLink href="/sign-in" size="lg" block variant="secondary">
+                    Sign in
+                  </ButtonLink>
+                )}
+              </div>
             }
           />
         </div>

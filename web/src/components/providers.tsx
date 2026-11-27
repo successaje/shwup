@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { Toaster } from "sonner";
 import { WagmiProvider, type State } from "wagmi";
+import { useSessionGuard } from "@/hooks/use-session";
 import { wagmiConfig } from "@/lib/wagmi";
 
 export function Providers({ children, initialState }: { children: ReactNode; initialState?: State }) {
@@ -17,6 +18,7 @@ export function Providers({ children, initialState }: { children: ReactNode; ini
   return (
     <WagmiProvider config={wagmiConfig} initialState={initialState}>
       <QueryClientProvider client={queryClient}>
+        <SessionGuard />
         {children}
         <Toaster
           position="bottom-center"
@@ -35,4 +37,9 @@ export function Providers({ children, initialState }: { children: ReactNode; ini
       </QueryClientProvider>
     </WagmiProvider>
   );
+}
+
+function SessionGuard() {
+  useSessionGuard();
+  return null;
 }
