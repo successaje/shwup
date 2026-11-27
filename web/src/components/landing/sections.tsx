@@ -287,36 +287,3 @@ export function Faq() {
     </section>
   );
 }
-
-export function FinalCta() {
-  return (
-    <section className="mx-auto max-w-6xl px-4 pb-24 sm:px-6">
-      <div className="flex flex-col items-start gap-6 border-t border-ink pt-12 md:flex-row md:items-end md:justify-between">
-        <h2 className="max-w-lg font-display text-3xl font-medium tracking-tight text-balance sm:text-4xl">
-          Your next event, with everyone who said they&apos;d come.
-        </h2>
-        <ButtonLink href="/app/new" size="lg">
-          Create an event
-        </ButtonLink>
-      </div>
-    </section>
-  );
-}
-
-export function Footer() {
-  return (
-    <footer className="border-t border-line">
-      <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-8 text-sm text-ink-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-        <p>ShwUp — commit, show up, get it back. On Arc.</p>
-        <div className="flex gap-5">
-          <Link href="/app" className="hover:text-ink">
-            Your events
-          </Link>
-          <a href="https://github.com/successaje/shwup" className="hover:text-ink">
-            Source
-          </a>
-        </div>
-      </div>
-    </footer>
-  );
-}

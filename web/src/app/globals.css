@@ -27,6 +27,11 @@
   --danger: light-dark(#b42318, #ff7a6e);
   --danger-soft: light-dark(#f9dfdb, #34160f);
   --focus: light-dark(#18170f, #f1ede2);
+  /* The back of the ticket: the footer is dark in both themes. */
+  --night: light-dark(#18170f, #0b0a09);
+  --night-ink: light-dark(#f1ede2, #f1ede2);
+  --night-ink-2: light-dark(#a9a496, #a9a496);
+  --night-line: light-dark(#34322c, #26241f);
   color-scheme: light dark;
 }
 
@@ -67,6 +72,10 @@
   --color-warn-soft: var(--warn-soft);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
+  --color-night: var(--night);
+  --color-night-ink: var(--night-ink);
+  --color-night-ink-2: var(--night-ink-2);
+  --color-night-line: var(--night-line);
 
   --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
   --font-sans: var(--font-geist), ui-sans-serif, system-ui, sans-serif;

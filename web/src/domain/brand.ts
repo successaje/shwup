@@ -21,6 +21,10 @@ export const PALETTE: Swatch[] = [
   { token: "warn-soft", light: "#f6ebcf", dark: "#2d2412", role: "Warning backgrounds" },
   { token: "danger", light: "#b42318", dark: "#ff7a6e", role: "Errors and destructive actions" },
   { token: "danger-soft", light: "#f9dfdb", dark: "#34160f", role: "Error backgrounds" },
+  { token: "night", light: "#18170f", dark: "#0b0a09", role: "The back of the ticket — the footer, dark in both themes" },
+  { token: "night-ink", light: "#f1ede2", dark: "#f1ede2", role: "Text on night" },
+  { token: "night-ink-2", light: "#a9a496", dark: "#a9a496", role: "Secondary text on night" },
+  { token: "night-line", light: "#34322c", dark: "#26241f", role: "Dividers on night" },
 ];
 
 /** Logo files in /public/brand, as shown and offered for download on the brand page. */

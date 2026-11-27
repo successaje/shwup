@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
 import { cn } from "@/lib/cn";
 
-type Variant = "primary" | "secondary" | "ghost" | "danger" | "ok";
+type Variant = "primary" | "secondary" | "ghost" | "danger" | "ok" | "inverse";
 type Size = "sm" | "md" | "lg";
 
 const base =
@@ -14,6 +14,8 @@ const variants: Record<Variant, string> = {
   ghost: "text-ink-2 hover:bg-sunken/70 hover:text-ink",
   danger: "border border-danger/30 bg-danger-soft text-danger hover:border-danger/60",
   ok: "bg-ok text-white hover:bg-ok/90 dark:text-sunken",
+  /** For dark "night" surfaces (the footer): paper button, night text, in both themes. */
+  inverse: "bg-night-ink text-night hover:bg-night-ink/90",
 };
 
 const sizes: Record<Size, string> = {

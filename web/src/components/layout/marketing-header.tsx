@@ -53,7 +53,10 @@ export function MarketingHeader() {
           })}
         </nav>
         <div className="ml-auto flex items-center gap-3">
-          <ThemeToggle size="sm" className="hidden md:inline-flex" />
+          {/* Visibility on a wrapper: classes passed into the toggle can't override its own display. */}
+          <div className="hidden md:block">
+            <ThemeToggle size="sm" />
+          </div>
           <ButtonLink href="/app" size="sm" icon={<ArrowRight className="size-3.5" />} className="flex-row-reverse max-md:hidden">
             Open app
           </ButtonLink>
