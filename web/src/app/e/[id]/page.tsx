@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { GuestPage } from "@/components/guest/guest-page";
 import { SiteHeader } from "@/components/layout/site-header";
+import { CompactFooter } from "@/components/layout/site-footer";
 import { readEventForMetadata } from "@/lib/server/read-event";
 import { walletAvailability } from "@/lib/server/wallet-config";
 import { formatUsd } from "@/lib/money";
@@ -31,6 +32,7 @@ export default async function EventPage({ params }: PageProps<"/e/[id]">) {
           <GuestPage id={BigInt(id)} wallets={walletAvailability()} />
         </Suspense>
       </main>
+      <CompactFooter />
     </>
   );
 }

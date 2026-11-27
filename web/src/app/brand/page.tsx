@@ -2,8 +2,8 @@ import { Download } from "lucide-react";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { CopyHex, StampDemo } from "@/components/brand/brand-client";
-import { Footer } from "@/components/landing/sections";
 import { MarketingHeader } from "@/components/layout/marketing-header";
+import { SiteFooter } from "@/components/layout/site-footer";
 import { buttonClass } from "@/components/ui/button";
 import { LOGOS, PALETTE } from "@/domain/brand";
 import { cn } from "@/lib/cn";
@@ -19,7 +19,7 @@ export default function BrandPage() {
   return (
     <>
       <MarketingHeader />
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-28 sm:px-6">
+      <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-8 sm:px-6">
         <header className="max-w-3xl pt-14 pb-16 sm:pt-20">
           <p className="font-mono text-xs tracking-[0.2em] text-stamp">BRAND</p>
           <h1 className="mt-4 font-display text-4xl font-bold tracking-[-0.03em] text-balance sm:text-5xl">A ticket stub, torn at the door.</h1>
@@ -153,7 +153,7 @@ export default function BrandPage() {
           </div>
         </Section>
       </main>
-      <Footer />
+      <SiteFooter />
     </>
   );
 }
