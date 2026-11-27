@@ -7,46 +7,46 @@
  */
 
 :root {
-  --paper: #f4f1e8;
-  --surface: #fbfaf5;
-  --sunken: #ebe7da;
-  --ink: #18170f;
-  --ink-2: #57544a;
-  --ink-3: #8a8677;
-  --line: #e0dbcc;
-  --line-strong: #c9c3b1;
-  --stamp: #d9481f;
-  --stamp-soft: #f8e1d6;
-  --ok: #157347;
-  --ok-soft: #dcefe2;
-  --warn: #9a6400;
-  --warn-soft: #f6ebcf;
-  --danger: #b42318;
-  --danger-soft: #f9dfdb;
-  --focus: #18170f;
+  /* Each colour is written once: light-dark(<light>, <dark>). The active scheme comes from
+     color-scheme below — the system setting by default, or the person's choice via data-theme
+     (set on <html> by the server from the shwup-theme cookie, so there's no flash). */
+  --paper: light-dark(#f4f1e8, #121110);
+  --surface: light-dark(#fbfaf5, #1a1917);
+  --sunken: light-dark(#ebe7da, #0d0c0b);
+  --ink: light-dark(#18170f, #f1ede2);
+  --ink-2: light-dark(#57544a, #b3ae9f);
+  --ink-3: light-dark(#8a8677, #7d796d);
+  --line: light-dark(#e0dbcc, #2b2925);
+  --line-strong: light-dark(#c9c3b1, #3d3a34);
+  --stamp: light-dark(#d9481f, #ff6a3d);
+  --stamp-soft: light-dark(#f8e1d6, #3a1d13);
+  --ok: light-dark(#157347, #3fcf8e);
+  --ok-soft: light-dark(#dcefe2, #12291d);
+  --warn: light-dark(#9a6400, #e7b04a);
+  --warn-soft: light-dark(#f6ebcf, #2d2412);
+  --danger: light-dark(#b42318, #ff7a6e);
+  --danger-soft: light-dark(#f9dfdb, #34160f);
+  --focus: light-dark(#18170f, #f1ede2);
+  color-scheme: light dark;
+}
+
+:root[data-theme="light"] {
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper: #121110;
-    --surface: #1a1917;
-    --sunken: #0d0c0b;
-    --ink: #f1ede2;
-    --ink-2: #b3ae9f;
-    --ink-3: #7d796d;
-    --line: #2b2925;
-    --line-strong: #3d3a34;
-    --stamp: #ff6a3d;
-    --stamp-soft: #3a1d13;
-    --ok: #3fcf8e;
-    --ok-soft: #12291d;
-    --warn: #e7b04a;
-    --warn-soft: #2d2412;
-    --danger: #ff7a6e;
-    --danger-soft: #34160f;
-    --focus: #f1ede2;
-    color-scheme: dark;
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+/* Tailwind's dark: follows the same rule — explicit choice first, then the system setting. */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *) {
+      @slot;
+    }
   }
 }
 
