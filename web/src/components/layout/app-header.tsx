@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Wordmark } from "@/components/brand";
 import { ButtonLink } from "@/components/ui/button";
+import { MobileMenu } from "@/components/layout/mobile-menu";
+import { APP_NAV, isCurrent } from "@/components/layout/nav";
 import { AccountButton } from "@/components/wallet/account-button";
 import { chain, chainKey } from "@/config/chain";
 import { cn } from "@/lib/cn";
@@ -20,13 +22,12 @@ export function AppHeader() {
             {chain.name}
           </span>
         )}
-        <nav className="ml-4 hidden items-center gap-1 text-sm md:flex">
-          <NavLink href="/app" active={path === "/app"}>
-            Events
-          </NavLink>
-          <NavLink href="/app/activity" active={path === "/app/activity"}>
-            Activity
-          </NavLink>
+        <nav className="ml-4 hidden items-center gap-1 text-sm md:flex" aria-label="App">
+          {APP_NAV.map((item) => (
+            <NavLink key={item.href} href={item.href} active={isCurrent(item, path)}>
+              {item.label}
+            </NavLink>
+          ))}
         </nav>
         <div className="ml-auto flex items-center gap-2">
           {path !== "/app/new" && (
@@ -35,6 +36,15 @@ export function AppHeader() {
             </ButtonLink>
           )}
           <AccountButton />
+          <MobileMenu
+            items={APP_NAV}
+            home="/app"
+            footer={
+              <ButtonLink href="/app/new" size="lg" block icon={<Plus className="size-4" />}>
+                New event
+              </ButtonLink>
+            }
+          />
         </div>
       </div>
     </header>

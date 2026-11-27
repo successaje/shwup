@@ -1,5 +1,6 @@
 import { LiveStats } from "@/components/landing/live-stats";
-import { Faq, FinalCta, Footer, Hero, HowItWorks, LandingNav, NoShowMath, Problem, Uses, WhyArc } from "@/components/landing/sections";
+import { Faq, FinalCta, Footer, Hero, HowItWorks, NoShowMath, Problem, Uses, WhyArc } from "@/components/landing/sections";
+import { MarketingHeader } from "@/components/layout/marketing-header";
 
 /** Live numbers come from the chain; regenerate the page at most once a minute. */
 export const revalidate = 60;
@@ -7,7 +8,7 @@ export const revalidate = 60;
 export default function Landing() {
   return (
     <>
-      <LandingNav />
+      <MarketingHeader />
       <main className="flex-1">
         <Hero />
         <LiveStats />

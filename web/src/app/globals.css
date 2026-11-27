@@ -104,6 +104,7 @@
   --animate-rise: rise 320ms var(--ease-out-quick) both;
   --animate-fade: fade 200ms ease-out both;
   --animate-stamp: stamp 420ms cubic-bezier(0.3, 1.4, 0.5, 1) both;
+  --animate-sheet: sheet 320ms var(--ease-out-quick) both;
 }
 
 @keyframes rise {
@@ -133,6 +134,15 @@
   }
   50% {
     transform: translateY(5.25rem);
+  }
+}
+
+@keyframes sheet {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: none;
   }
 }
 

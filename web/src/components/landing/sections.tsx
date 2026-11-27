@@ -1,35 +1,9 @@
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { Wordmark } from "@/components/brand";
 import { HeroDemo } from "@/components/landing/hero-demo";
 import { ButtonLink } from "@/components/ui/button";
 import { explorerUrl, shwupAddress } from "@/config/chain";
-
-export function LandingNav() {
-  return (
-    <header className="mx-auto flex h-16 w-full max-w-6xl items-center gap-6 px-4 sm:px-6">
-      <Wordmark />
-      <nav className="ml-auto hidden items-center gap-6 text-sm text-ink-2 md:flex">
-        <a href="#how" className="hover:text-ink">
-          How it works
-        </a>
-        <a href="#uses" className="hover:text-ink">
-          What it&apos;s for
-        </a>
-        <a href="#arc" className="hover:text-ink">
-          Why it works now
-        </a>
-        <a href="#faq" className="hover:text-ink">
-          Questions
-        </a>
-      </nav>
-      <ButtonLink href="/app" size="sm" variant="secondary" className="max-md:ml-auto">
-        Open app
-      </ButtonLink>
-    </header>
-  );
-}
 
 export function Hero() {
   return (
@@ -97,7 +71,7 @@ const STEPS = [
 
 export function HowItWorks() {
   return (
-    <section id="how" className="mx-auto max-w-6xl scroll-mt-8 px-4 py-20 sm:px-6 md:py-28">
+    <section id="how" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-20 sm:px-6 md:py-28">
       <h2 className="font-display text-3xl font-medium tracking-tight sm:text-4xl">How it works</h2>
       <ol className="mt-12 grid gap-10 md:grid-cols-3 md:gap-8">
         {STEPS.map((s, i) => (
@@ -151,7 +125,7 @@ const USES = [
 
 export function Uses() {
   return (
-    <section id="uses" className="mx-auto max-w-6xl scroll-mt-8 px-4 pb-20 sm:px-6 md:pb-28">
+    <section id="uses" className="mx-auto max-w-6xl scroll-mt-20 px-4 pb-20 sm:px-6 md:pb-28">
       <div className="max-w-2xl">
         <h2 className="font-display text-3xl font-medium tracking-tight text-balance sm:text-4xl">One contract, any door.</h2>
         <p className="mt-4 leading-relaxed text-ink-2 md:text-lg">
@@ -224,7 +198,7 @@ function Cell({ label, value }: { label: string; value: string }) {
 export function WhyArc() {
   const contract = shwupAddress ? explorerUrl("address", shwupAddress) : undefined;
   return (
-    <section id="arc" className="scroll-mt-8 bg-ink text-paper">
+    <section id="arc" className="scroll-mt-20 bg-ink text-paper">
       <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 md:py-28">
         <div className="grid gap-12 md:grid-cols-[1fr_1.3fr]">
           <div>
@@ -295,7 +269,7 @@ const FAQ: { q: string; a: ReactNode }[] = [
 
 export function Faq() {
   return (
-    <section id="faq" className="mx-auto max-w-3xl scroll-mt-8 px-4 py-20 sm:px-6 md:py-28">
+    <section id="faq" className="mx-auto max-w-3xl scroll-mt-20 px-4 py-20 sm:px-6 md:py-28">
       <h2 className="font-display text-3xl font-medium tracking-tight">Questions</h2>
       <div className="mt-8 divide-y divide-line border-y border-line">
         {FAQ.map((f) => (
