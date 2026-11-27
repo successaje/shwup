@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="112" height="112" viewBox="0 0 112 112"><g transform="translate(-8 -7.9999999999999964) scale(5.333333333333333)">
+    <mask id="perf3" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24">
+      <rect width="24" height="24" fill="#fff"/>
+      <path d="M15 6.5v11" stroke="#000" stroke-width="1.6" stroke-linecap="round" stroke-dasharray="0.1 3.2"/>
+    </mask>
+    <path d="M4 4h16a1 1 0 0 1 1 1v4.2a2.8 2.8 0 0 0 0 5.6V19a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-4.2a2.8 2.8 0 0 0 0-5.6V5a1 1 0 0 1 1-1Z" fill="#f4f1e8" mask="url(#perf3)"/>
+  </g></svg>
