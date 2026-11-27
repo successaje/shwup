@@ -4,6 +4,7 @@ import { ArrowUpRight, KeyRound } from "lucide-react";
 import Link from "next/link";
 import { useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { TxProgress } from "@/components/tx-progress";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
@@ -33,6 +34,9 @@ export function Settings() {
         </p>
       </header>
       <NameSection address={address} />
+      <Section title="Appearance" description="Light, dark, or match your device. Remembered on this browser.">
+        <ThemeToggle />
+      </Section>
       <PrivacySection address={address} />
       <DoorKeysSection />
     </div>
