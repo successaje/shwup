@@ -10,7 +10,8 @@
     "test": "vitest run",
     "typecheck": "next typegen && tsc --noEmit",
     "format": "prettier --write src",
-    "smoke:arc": "node scripts/arc-smoke.mjs"
+    "smoke:arc": "node scripts/arc-smoke.mjs",
+    "brand": "node scripts/brand-assets.mjs && cd public/brand && rm -f shwup-brand-kit.zip && zip -qr shwup-brand-kit.zip *.svg png"
   },
   "dependencies": {
     "@circle-fin/adapter-viem-v2": "^1.18.0",
@@ -32,6 +33,7 @@
     "wagmi": "^3.7.7"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/qrcode": "^1.5.6",
@@ -39,6 +41,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
+    "opentype.js": "1",
     "prettier": "^3.9.9",
     "prettier-plugin-tailwindcss": "^0.8.1",
     "tailwindcss": "^4",
