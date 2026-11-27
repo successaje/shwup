@@ -1,10 +1,9 @@
 import "server-only";
-import { createPublicClient, http, type Address } from "viem";
-import { chain, rpcUrl, shwupAddress } from "@/config/chain";
+import type { Address } from "viem";
+import { chain, shwupAddress } from "@/config/chain";
 import { toShwUpEvent, type ShwUpEvent, type TicketStatus } from "@/domain/event";
 import { shwupAbi } from "@/lib/contracts/shwup-abi";
-
-const client = createPublicClient({ chain, transport: http(rpcUrl, { timeout: 4_000 }) });
+import { chainClient as client } from "@/lib/server/chain-client";
 
 /** Server-side read used only for page metadata. Returns null rather than failing the page. */
 export async function readEventForMetadata(id: bigint): Promise<ShwUpEvent | null> {
