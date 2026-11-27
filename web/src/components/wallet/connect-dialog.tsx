@@ -1,9 +1,11 @@
 "use client";
 
 import { ArrowUpRight, Wallet } from "lucide-react";
+import { useState } from "react";
 import { useConnect, useConnectors } from "wagmi";
 import { Spinner } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
+import { WalletConnectOption } from "@/components/wallet/walletconnect-option";
 import { toFriendlyError } from "@/lib/errors";
 
 /** A dialog for connecting a wallet, for flows that only need one (holding a spot, creating an event). */
@@ -30,42 +32,47 @@ export function WalletList({ onConnected }: { onConnected?: () => void }) {
     mutation: { onSuccess: () => onConnected?.() },
   });
 
-  const named = connectors.filter((c) => c.id !== "injected");
-  const hasGenericInjected = typeof window !== "undefined" && "ethereum" in window;
-  const list = named.length > 0 ? named : hasGenericInjected ? connectors : [];
-  const friendly = error ? toFriendlyError(error) : null;
+  const [wcExpanded, setWcExpanded] = useState(false);
 
+  const wc = connectors.find((c) => c.id === "walletConnect");
+  const injected = connectors.filter((c) => c.id !== "walletConnect");
+  const named = injected.filter((c) => c.id !== "injected");
+  const hasGenericInjected = typeof window !== "undefined" && "ethereum" in window;
+  const list = named.length > 0 ? named : hasGenericInjected ? injected : [];
+  const friendly = error ? toFriendlyError(error) : null;
+  const noBrowserWallet = list.length === 0;
+
+  // One flat, keyed column. The WalletConnect option keeps the same key in every state, so React
+  // never remounts it (which would drop its pairing code); its neighbours are hidden around it.
   return (
     <>
-      {list.length > 0 ? (
-        <ul className="flex flex-col gap-2">
-          {list.map((c) => {
+      <div className="flex flex-col gap-2">
+        {!wcExpanded &&
+          list.map((c) => {
             const pending = isPending && variables?.connector === c;
             return (
-              <li key={c.uid}>
-                <button
-                  onClick={() => connect({ connector: c })}
-                  disabled={isPending}
-                  className="flex h-14 w-full items-center gap-3 rounded-md border border-line-strong bg-surface px-4 text-left transition-colors hover:border-ink-3 hover:bg-sunken/40 disabled:opacity-60"
-                >
-                  {c.icon ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- data: URIs from EIP-6963
-                    <img src={c.icon} alt="" className="size-7 rounded-sm" />
-                  ) : (
-                    <span className="grid size-7 place-items-center rounded-sm bg-sunken">
-                      <Wallet className="size-4 text-ink-2" />
-                    </span>
-                  )}
-                  <span className="flex-1 font-medium">{c.id === "injected" ? "Browser wallet" : c.name}</span>
-                  {pending && <span className="flex items-center gap-2 text-sm text-ink-2"><Spinner />Check your wallet</span>}
-                </button>
-              </li>
+              <button
+                key={c.uid}
+                onClick={() => connect({ connector: c })}
+                disabled={isPending}
+                className="flex h-14 w-full items-center gap-3 rounded-md border border-line-strong bg-surface px-4 text-left transition-colors hover:border-ink-3 hover:bg-sunken/40 disabled:opacity-60"
+              >
+                {c.icon ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- data: URIs from EIP-6963
+                  <img src={c.icon} alt="" className="size-7 rounded-sm" />
+                ) : (
+                  <span className="grid size-7 place-items-center rounded-sm bg-sunken">
+                    <Wallet className="size-4 text-ink-2" />
+                  </span>
+                )}
+                <span className="flex-1 font-medium">{c.id === "injected" ? "Browser wallet" : c.name}</span>
+                {pending && <span className="flex items-center gap-2 text-sm text-ink-2"><Spinner />Check your wallet</span>}
+              </button>
             );
           })}
-        </ul>
-      ) : (
-        <NoWallet />
-      )}
+        {wc && <WalletConnectOption key="walletconnect" connector={wc} onConnected={onConnected} onExpandedChange={setWcExpanded} />}
+        {!wcExpanded && noBrowserWallet && (wc ? <NoWallet key="hint" compact /> : <NoWallet key="hint" />)}
+      </div>
 
       {friendly && (
         <p role="alert" className="mt-3 rounded-sm bg-danger-soft px-3 py-2 text-sm text-danger">
@@ -81,10 +88,26 @@ export function metamaskDappLink(href: string): string {
   return `https://metamask.app.link/dapp/${href.replace(/^https?:\/\//, "")}`;
 }
 
-function NoWallet() {
+function NoWallet({ compact = false }: { compact?: boolean }) {
   // Phones have no wallet extension: the page has to open inside the wallet app's own browser.
   const mobile = typeof navigator !== "undefined" && /android|iphone|ipad|ipod/i.test(navigator.userAgent);
   const here = typeof window !== "undefined" ? window.location.href : "";
+
+  // Under the WalletConnect option, one quiet line is enough.
+  if (compact) {
+    return mobile ? (
+      <a href={metamaskDappLink(here)} className="text-center text-sm text-ink-2 underline decoration-line-strong underline-offset-4 hover:text-ink">
+        Or open ShwUp inside MetaMask&apos;s browser
+      </a>
+    ) : (
+      <p className="text-center text-xs text-ink-3">
+        Prefer a browser extension?{" "}
+        <a href="https://metamask.io/download" target="_blank" rel="noreferrer" className="underline underline-offset-4 hover:text-ink">
+          Get MetaMask
+        </a>
+      </p>
+    );
+  }
 
   if (mobile) {
     return (

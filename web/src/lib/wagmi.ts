@@ -1,13 +1,37 @@
 import { fallback } from "viem";
 import { cookieStorage, createConfig, createStorage, http, type CreateConnectorFn } from "wagmi";
-import { injected, mock } from "wagmi/connectors";
+import { injected, mock, walletConnect } from "wagmi/connectors";
 import { chain, chainKey, rpcUrl } from "@/config/chain";
 
 /**
- * Injected (EIP-6963) wallets only: MetaMask, Rabby, Phantom, Coinbase extension, and mobile
- * in-app browsers. ShwUp holds no keys and needs no wallet vendor API keys.
+ * Injected (EIP-6963) wallets: MetaMask, Rabby, Phantom, Coinbase extension, and mobile in-app
+ * browsers. ShwUp holds no keys.
  */
 const connectors: CreateConnectorFn[] = [injected()];
+
+/**
+ * WalletConnect, for wallets on another device (scan a QR code) or in another app on the same
+ * phone. Needs a Reown (WalletConnect) project ID; without one the option simply isn't offered.
+ * We draw the QR code ourselves (`showQrModal: false`), so no third-party modal is loaded.
+ */
+export const walletConnectProjectId = process.env.NEXT_PUBLIC_REOWN_PROJECT_ID;
+// Browser only: WalletConnect's storage needs IndexedDB, which servers don't have. Connectors
+// aren't rendered on the server, so leaving it out there doesn't change the HTML.
+if (walletConnectProjectId && typeof window !== "undefined") {
+  const url = window.location.origin;
+  connectors.push(
+    walletConnect({
+      projectId: walletConnectProjectId,
+      showQrModal: false,
+      metadata: {
+        name: "ShwUp",
+        description: "RSVPs that mean it. Refundable deposits in USDC on Arc.",
+        url,
+        icons: [`${url}/brand/png/app-icon.png`],
+      },
+    }),
+  );
+}
 
 /**
  * LOCAL DEVELOPMENT ONLY: anvil's pre-funded, unlocked test accounts, so flows can be exercised
