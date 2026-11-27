@@ -109,8 +109,8 @@ function PrivacySection({ address }: { address: `0x${string}` }) {
           whether you checked in.
         </li>
         <li>
-          <span className="font-medium text-ink">Never collected:</span> email, phone number, location, or anything else. There are no
-          cookies beyond keeping your wallet connected.
+          <span className="font-medium text-ink">Never collected:</span> email, phone number, location, or anything else. The only
+          cookies keep your wallet connected and remember your theme.
         </li>
         <li className="flex flex-wrap gap-x-4 gap-y-1">
           {mine && (
